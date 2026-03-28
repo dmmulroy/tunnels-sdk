@@ -5,9 +5,8 @@
     "sdk",
     "infra"
   ],
-  "status": "open",
-  "created_at": "2026-03-28T23:15:11.389Z",
-  "assigned_to_session": "0cd459e7-f400-4cb3-9037-e8aa41e99397"
+  "status": "closed",
+  "created_at": "2026-03-28T23:15:11.389Z"
 }
 
 Set up the monorepo structure for the `tunnel-sdk` package.
