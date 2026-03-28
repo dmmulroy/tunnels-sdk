@@ -5,7 +5,7 @@
  * `using` ensures the tunnel is cleaned up when the scope exits.
  */
 
-import { expose } from "@cloudflare/tunnel"
+import { expose } from "tunnel-sdk"
 
 // Anonymous quick tunnel — no auth required
 await using tunnel = await expose(3000)

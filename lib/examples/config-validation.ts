@@ -5,7 +5,7 @@
  * Use in tests, CI, or pre-deploy hooks.
  */
 
-import { TunnelConfig } from "@cloudflare/tunnel"
+import { TunnelConfig } from "tunnel-sdk"
 
 // --- Validate an object ---
 

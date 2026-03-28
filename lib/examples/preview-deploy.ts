@@ -6,7 +6,7 @@
  * ensures cleanup even if the script crashes.
  */
 
-import { TunnelClient } from "@cloudflare/tunnel"
+import { TunnelClient } from "tunnel-sdk"
 import { Octokit } from "@octokit/rest"
 
 const client = new TunnelClient({

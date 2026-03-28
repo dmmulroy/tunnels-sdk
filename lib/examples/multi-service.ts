@@ -5,7 +5,7 @@
  * for a tunnel that fronts multiple local services.
  */
 
-import { TunnelClient } from "@cloudflare/tunnel"
+import { TunnelClient } from "tunnel-sdk"
 
 const client = new TunnelClient({
   accountId: process.env.CF_ACCOUNT_ID!,

@@ -1,6 +1,6 @@
 # cf-tunnels
 
-Design documents for a modern Cloudflare Tunnel developer experience — a CLI (`cft`) and a TypeScript library (`@cloudflare/tunnel`).
+A modern Cloudflare Tunnel developer experience — a CLI (`cft`) and a TypeScript SDK (`tunnel-sdk`).
 
 ## Why
 
@@ -17,7 +17,7 @@ Nobody gives you the full picture. A modern tool treats the **full tunnel lifecy
 | Directory | Description |
 |-----------|-------------|
 | [`cli/`](./cli/README.md) | Design for `cft` — a modern CLI for Cloudflare Tunnels |
-| [`lib/`](./lib/README.md) | Design for `@cloudflare/tunnel` — a TypeScript library with top-notch DX |
+| [`lib/`](./lib/README.md) | Design for `tunnel-sdk` — a TypeScript SDK with top-notch DX |
 
 ## Design Principles
 

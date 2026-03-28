@@ -1,4 +1,4 @@
-# `@cloudflare/tunnel` — TypeScript Library Design
+# `tunnel-sdk` — TypeScript SDK Design
 
 A TypeScript library for Cloudflare Tunnels with top-notch DX. Manages the full tunnel lifecycle — API calls, binary management, process lifecycle, streaming logs — in one package.
 
@@ -31,7 +31,7 @@ Gives you both. API management + process management + config validation + stream
 ## Installation
 
 ```bash
-npm install @cloudflare/tunnel
+npm install tunnel-sdk
 ```
 
 No separate `cloudflared` installation required. The binary is auto-downloaded, platform-matched, and version-locked on first use.
@@ -43,7 +43,7 @@ No separate `cloudflared` installation required. The binary is auto-downloaded, 
 ### Quick Expose (Zero Config)
 
 ```ts
-import { expose } from "@cloudflare/tunnel"
+import { expose } from "tunnel-sdk"
 
 // One-liner: expose a port, get a URL
 const tunnel = await expose(3000)
@@ -64,7 +64,7 @@ await tunnel.close()
 ### Quick Expose with Explicit Resource Management
 
 ```ts
-import { expose } from "@cloudflare/tunnel"
+import { expose } from "tunnel-sdk"
 
 // `using` ensures cleanup even if an exception is thrown
 await using tunnel = await expose(3000)
@@ -77,7 +77,7 @@ console.log(tunnel.url)
 ### `TunnelClient` — Full API Access
 
 ```ts
-import { TunnelClient } from "@cloudflare/tunnel"
+import { TunnelClient } from "tunnel-sdk"
 
 const client = new TunnelClient({
   accountId: process.env.CF_ACCOUNT_ID,
@@ -334,7 +334,7 @@ connection.on("status", (s: TunnelStatus) => {
 ### Config Validation (Zod-Powered)
 
 ```ts
-import { TunnelConfig } from "@cloudflare/tunnel"
+import { TunnelConfig } from "tunnel-sdk"
 
 // Validate a config object
 const result = TunnelConfig.safeParse({
@@ -387,10 +387,10 @@ const config = TunnelConfig.fromYaml(`
 The library auto-manages the `cloudflared` binary. You never need to think about it.
 
 ```ts
-import { cloudflared } from "@cloudflare/tunnel/bin"
+import { cloudflared } from "tunnel-sdk/bin"
 
 // Binary is auto-downloaded on first use
-// Stored in node_modules/.cache/@cloudflare/tunnel/
+// Stored in node_modules/.cache/tunnel-sdk/bin/
 // Version-locked to the library version
 
 // Manual control if you need it
@@ -611,7 +611,7 @@ interface TunnelConfig {
 
 ## Comparison
 
-| | Official SDK | Community `cloudflared` | `@cloudflare/tunnel` |
+| | Official SDK | Community `cloudflared` | `tunnel-sdk` |
 |---|---|---|---|
 | API management | ✅ (verbose, deeply nested) | ❌ | ✅ (ergonomic, flat) |
 | Binary management | ❌ | ✅ (manual) | ✅ (invisible, version-locked) |

@@ -5,7 +5,7 @@
  * with backpressure, filtering, and aggregation.
  */
 
-import { TunnelClient } from "@cloudflare/tunnel"
+import { TunnelClient } from "tunnel-sdk"
 
 const client = new TunnelClient({
   accountId: process.env.CF_ACCOUNT_ID!,
