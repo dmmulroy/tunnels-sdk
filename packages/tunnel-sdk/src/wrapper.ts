@@ -1,4 +1,4 @@
-import { Effect, Layer, ManagedRuntime, Redacted, Stream } from "effect"
+import { Effect, Exit, Layer, ManagedRuntime, Redacted, Scope, Stream } from "effect"
 import {
   CloudflareApi,
   CloudflareApiConfig,
@@ -318,13 +318,25 @@ export async function expose(
   const binaryLayer = options?._binaryLayer ?? CloudflaredBinary.layer
   const runtime = ManagedRuntime.make(binaryLayer)
 
+  // Create a scope we control — keeps the tunnel process alive until close()
+  const scope = Effect.runSync(Scope.make())
+
   const result = await runtime.runPromise(
-    exposeEffect(port).pipe(Effect.scoped),
+    exposeEffect(port).pipe(
+      Effect.provideService(Scope.Scope, scope),
+    ),
   )
+
+  const cleanup = async () => {
+    // Close scope first — triggers SIGTERM finalizer on the tunnel process
+    await Effect.runPromise(Scope.close(scope, Exit.void))
+    // Then dispose the runtime
+    await runtime.dispose()
+  }
 
   return {
     url: result.url,
-    close: () => runtime.dispose(),
-    [Symbol.asyncDispose]: () => runtime.dispose(),
+    close: cleanup,
+    [Symbol.asyncDispose]: cleanup,
   }
 }

@@ -1,31 +1,60 @@
 import { describe, it, assert } from "@effect/vitest"
-import { Effect, Layer, Scope } from "effect"
-import { BinaryInstallError, TunnelProcessError } from "./errors.js"
+import { Effect, Layer, Scope, Exit } from "effect"
 import { CloudflaredBinary } from "./services/CloudflaredBinary.js"
+import { expose } from "./expose.js"
+import { expose as exposeWrapper } from "../wrapper.js"
+import { resolve, dirname } from "node:path"
+import { fileURLToPath } from "node:url"
 
-// Note: expose() requires real child process spawning, so we test through
-// the CloudflaredBinary stub to verify the function type-checks and the
-// binary integration is correct.
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const fakeBinaryPath = resolve(__dirname, "../test-fixtures/fake-cloudflared.sh")
 
-describe("expose (types)", () => {
-  it("CloudflaredBinary stub provides path", () =>
+/** Layer that provides our fake cloudflared binary */
+const FakeBinaryLayer = Layer.succeed(
+  CloudflaredBinary,
+  CloudflaredBinary.of({
+    path: Effect.succeed(fakeBinaryPath),
+    ensureInstalled: () => Effect.succeed(fakeBinaryPath),
+    install: () => Effect.succeed(void 0),
+    isInstalled: () => Effect.succeed(true),
+  }),
+)
+
+describe("expose (Effect)", () => {
+  it.effect("returns URL within a managed scope", () =>
     Effect.gen(function* () {
-      const binary = yield* CloudflaredBinary
-      const path = yield* binary.path
-      assert.strictEqual(path, "/fake/path/cloudflared")
+      const result = yield* expose(3000)
+      assert.isTrue(result.url.includes("trycloudflare.com"))
+      // Process is alive here — scope finalizer kills it when this block exits
     }).pipe(
-      Effect.provide(
-        Layer.succeed(
-          CloudflaredBinary,
-          CloudflaredBinary.of({
-            path: Effect.succeed("/fake/path/cloudflared"),
-            ensureInstalled: () => Effect.succeed("/fake/path/cloudflared"),
-            install: () => Effect.succeed(void 0),
-            isInstalled: () => Effect.succeed(true),
-          }),
-        ),
-      ),
-      Effect.runPromise,
+      Effect.scoped,
+      Effect.provide(FakeBinaryLayer),
     ),
   )
+})
+
+describe("expose() wrapper lifecycle", () => {
+  it("returns URL and process stays alive until close()", async () => {
+    const tunnel = await exposeWrapper(3000, { _binaryLayer: FakeBinaryLayer })
+
+    // URL should be present — old bug: process was killed before this returned
+    assert.isTrue(tunnel.url.includes("trycloudflare.com"))
+
+    // close() should not throw and should kill the process
+    await tunnel.close()
+  }, 10_000)
+
+  it("supports Symbol.asyncDispose", async () => {
+    const tunnel = await exposeWrapper(3000, { _binaryLayer: FakeBinaryLayer })
+    assert.isTrue(tunnel.url.includes("trycloudflare.com"))
+    assert.strictEqual(typeof tunnel[Symbol.asyncDispose], "function")
+    await tunnel[Symbol.asyncDispose]()
+  }, 10_000)
+
+  it("double close() is safe (idempotent)", async () => {
+    const tunnel = await exposeWrapper(3000, { _binaryLayer: FakeBinaryLayer })
+    await tunnel.close()
+    // Second close should not throw
+    await tunnel.close()
+  }, 10_000)
 })
