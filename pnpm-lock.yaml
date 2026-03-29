@@ -32,6 +32,12 @@ importers:
 
   packages/tunnel-sdk:
     dependencies:
+      '@effect/platform-node':
+        specifier: beta
+        version: 4.0.0-beta.42(effect@4.0.0-beta.42)(ioredis@5.10.1)
+      effect:
+        specifier: beta
+        version: 4.0.0-beta.42
       yaml:
         specifier: ^2.7.1
         version: 2.8.3
@@ -39,6 +45,9 @@ importers:
         specifier: ^3.24.3
         version: 3.25.76
     devDependencies:
+      '@effect/vitest':
+        specifier: beta
+        version: 4.0.0-beta.42(effect@4.0.0-beta.42)(vitest@3.2.4(@types/node@25.5.0)(yaml@2.8.3))
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0
