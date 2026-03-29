@@ -13,16 +13,37 @@ import { CloudflaredBinary } from "../services/CloudflaredBinary.js"
  * Production layer — all services wired with explicit config.
  * Requires a `CloudflareApiConfig` with accountId + apiToken.
  */
-export const LiveLayer = (config: CloudflareApiConfig) =>
-  Layer.mergeAll(
-    TunnelOperations.layer,
+export const LiveLayer = (config: CloudflareApiConfig) => {
+  // CloudflareApi (with FetchHttpClient) is the root dependency
+  const apiLayer = CloudflareApi.layer(config).pipe(
+    Layer.provide(FetchHttpClient.layer),
+  )
+
+  // Managers all depend on CloudflareApi
+  const managersLayer = Layer.mergeAll(
     IngressManager.layer,
     DnsManager.layer,
     RouteManager.layer,
     VNetManager.layer,
-    TunnelProcessService.layer,
-  ).pipe(
-    Layer.provide(CloudflareApi.layer(config)),
-    Layer.provide(FetchHttpClient.layer),
-    Layer.provideMerge(CloudflaredBinary.layer),
+  ).pipe(Layer.provide(apiLayer))
+
+  // TunnelOperations depends on CloudflareApi + managers
+  const opsLayer = TunnelOperations.layer.pipe(
+    Layer.provide(managersLayer),
+    Layer.provide(apiLayer),
   )
+
+  // TunnelProcessService depends on CloudflaredBinary
+  const processLayer = TunnelProcessService.layer.pipe(
+    Layer.provide(CloudflaredBinary.layer),
+  )
+
+  // Merge everything and also export the API + managers for direct access
+  return Layer.mergeAll(
+    opsLayer,
+    managersLayer,
+    processLayer,
+    CloudflaredBinary.layer,
+    apiLayer,
+  )
+}

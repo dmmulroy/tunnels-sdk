@@ -1,22 +1,28 @@
-export { TunnelClient } from "./client.js"
-export type { TunnelClientDeps, TunnelClientOptions } from "./client.js"
-export type { BinaryResolver } from "./bin/index.js"
-export { TunnelConfig } from "./config/schema.js"
-export { Tunnel } from "./tunnel.js"
-export type { TunnelDeps, TunnelConnection, DeleteOptions } from "./tunnel.js"
-export { TunnelOperations } from "./tunnel-operations.js"
-export type { CreateTunnelOptions, TunnelListOptions, TunnelOperationsDeps } from "./tunnel-operations.js"
-export { TunnelProcess } from "./process.js"
-export type { ProcessFactory, ProcessSpawner, RunOptions, TunnelStatus, ConnectorInfo, ReconnectAttempt, TunnelError, TunnelMetrics, TunnelProcessEvents } from "./process.js"
-export { LogStream } from "./logs.js"
-export type { LogEntry } from "./logs.js"
-export { expose } from "./expose.js"
-export type { ExposeOptions } from "./expose.js"
-export type { IApiClient } from "./api/interfaces.js"
-export { createDefaultTunnelDeps } from "./defaults.js"
+// ---------------------------------------------------------------------------
+// New Effect-backed async/await wrapper API
+// ---------------------------------------------------------------------------
 
-// Manager types
-export type { DnsEnsureOptions, DnsRecord } from "./managers/dns/index.js"
-export type { IngressRule, OriginRequestConfig } from "./managers/ingress/index.js"
-export type { Route, RouteAddOptions, RouteCheckResult } from "./managers/routes/index.js"
-export type { VNet, VNetCreateOptions } from "./managers/vnets/index.js"
+export { TunnelClient, expose } from "./wrapper.js"
+export type { TunnelClientOptions, ExposedTunnel } from "./wrapper.js"
+
+// Re-export types from Effect SDK (no Effect knowledge required for consumers)
+export type {
+  TunnelInfo,
+  IngressRule,
+  Route,
+  DnsRecord,
+  VNet,
+  RouteCheckResult,
+  RunningTunnel,
+  TunnelEvent,
+  RunOptions,
+  CreateTunnelOptions,
+  TunnelListOptions,
+  DeleteOptions,
+  TunnelStatus,
+  ConnectorInfo,
+  LogEntry,
+} from "./effect/index.js"
+
+// Config validation
+export { parseConfig, parseConfigFromYaml, parseConfigFromFile } from "./effect/config.js"
