@@ -6,6 +6,12 @@ export interface ProcessSpawner {
   spawn(command: string, args: string[], options: SpawnOptions): ChildProcess
 }
 
+export interface BinaryResolver {
+  readonly path: string
+  isInstalled(): Promise<boolean>
+  install(): Promise<void>
+}
+
 export interface TunnelConnection {
   id: string
   colo: string

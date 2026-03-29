@@ -1,12 +1,23 @@
 import type { ApiClient } from "./api/client.js"
 import type { CfTunnel } from "./api/types.js"
-import type { DeleteOptions, LogEntry, RunOptions, TunnelConnection, TunnelStatus } from "./types.js"
+import type { BinaryResolver, DeleteOptions, LogEntry, RunOptions, TunnelConnection, TunnelStatus } from "./types.js"
 import { cloudflared } from "./bin/cloudflared.js"
 import { LogStream } from "./logs.js"
 import { DnsManager } from "./managers/dns.js"
 import { IngressManager } from "./managers/ingress.js"
 import { RouteManager } from "./managers/routes.js"
 import { TunnelProcess } from "./process.js"
+
+export interface ProcessFactory {
+  start(binaryPath: string, token: string, options?: RunOptions): TunnelProcess
+}
+
+export interface TunnelDeps {
+  api: ApiClient
+  binaryPath?: string
+  binaryResolver?: BinaryResolver
+  processFactory?: ProcessFactory
+}
 
 const VALID_STATUSES = new Set<TunnelStatus>(["healthy", "inactive", "degraded", "down"])
 
@@ -41,15 +52,19 @@ export class Tunnel {
 
   private readonly api: ApiClient
   private readonly binaryPath?: string
+  private readonly binaryResolver: BinaryResolver
+  private readonly processFactory: ProcessFactory
   private token: string | null = null
   private lastProcess: TunnelProcess | null = null
 
-  constructor(data: CfTunnel, api: ApiClient, binaryPath?: string) {
-    this.api = api
-    this.binaryPath = binaryPath
-    this.ingress = new IngressManager(api, data.id)
-    this.dns = new DnsManager(api, data.id)
-    this.routes = new RouteManager(api, data.id)
+  constructor(data: CfTunnel, deps: TunnelDeps) {
+    this.api = deps.api
+    this.binaryPath = deps.binaryPath
+    this.binaryResolver = deps.binaryResolver ?? cloudflared
+    this.processFactory = deps.processFactory ?? { start: TunnelProcess.start }
+    this.ingress = new IngressManager(deps.api, data.id)
+    this.dns = new DnsManager(deps.api, data.id)
+    this.routes = new RouteManager(deps.api, data.id)
 
     this.id = data.id
     this.name = data.name
@@ -87,13 +102,13 @@ export class Tunnel {
 
   async run(options?: RunOptions): Promise<TunnelProcess> {
     const token = await this.getToken()
-    const binaryPath = this.binaryPath ?? cloudflared.path
+    const binaryPath = this.binaryPath ?? this.binaryResolver.path
 
-    if (!this.binaryPath && !(await cloudflared.isInstalled())) {
-      await cloudflared.install()
+    if (!this.binaryPath && !(await this.binaryResolver.isInstalled())) {
+      await this.binaryResolver.install()
     }
 
-    const process = TunnelProcess.start(binaryPath, token, options)
+    const process = this.processFactory.start(binaryPath, token, options)
     this.lastProcess = process
     return process
   }

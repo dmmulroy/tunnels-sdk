@@ -42,13 +42,17 @@ class TunnelOperations {
     private readonly binaryPath?: string,
   ) {}
 
+  private tunnelDeps() {
+    return { api: this.api, binaryPath: this.binaryPath }
+  }
+
   async create(name: string, options?: CreateTunnelOptions): Promise<Tunnel> {
     const cfTunnel = await this.api.post<CfTunnel>(
       this.api.accountPath("/cfd_tunnel"),
       { name, tunnel_secret: generateSecret(), config_src: "cloudflare" },
     )
 
-    const tunnel = new Tunnel(cfTunnel, this.api, this.binaryPath)
+    const tunnel = new Tunnel(cfTunnel, this.tunnelDeps())
 
     if (options?.ingress?.length) {
       await tunnel.ingress.set(options.ingress)
@@ -92,7 +96,7 @@ class TunnelOperations {
       params,
     )
 
-    return tunnels.map((tunnel) => new Tunnel(tunnel, this.api, this.binaryPath))
+    return tunnels.map((tunnel) => new Tunnel(tunnel, this.tunnelDeps()))
   }
 
   async *listAll(): AsyncGenerator<Tunnel> {
@@ -100,7 +104,7 @@ class TunnelOperations {
       this.api.accountPath("/cfd_tunnel"),
       { is_deleted: "false" },
     )) {
-      yield new Tunnel(tunnel, this.api, this.binaryPath)
+      yield new Tunnel(tunnel, this.tunnelDeps())
     }
   }
 
@@ -109,7 +113,7 @@ class TunnelOperations {
       const cfTunnel = await this.api.get<CfTunnel>(
         this.api.accountPath(`/cfd_tunnel/${nameOrId}`),
       )
-      return new Tunnel(cfTunnel, this.api, this.binaryPath)
+      return new Tunnel(cfTunnel, this.tunnelDeps())
     }
 
     const tunnels = await this.list({ name: nameOrId })

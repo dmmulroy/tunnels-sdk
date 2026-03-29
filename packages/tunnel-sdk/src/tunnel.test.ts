@@ -1,21 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { cloudflared } from "./bin/cloudflared.js"
 import { Tunnel } from "./tunnel.js"
-import { TunnelProcess } from "./process.js"
-
-vi.mock("./bin/cloudflared.js", () => ({
-  cloudflared: {
-    path: "/managed/cloudflared",
-    isInstalled: vi.fn().mockResolvedValue(true),
-    install: vi.fn().mockResolvedValue(undefined),
-  },
-}))
-
-vi.mock("./process.js", () => ({
-  TunnelProcess: {
-    start: vi.fn().mockReturnValue({ kind: "process", stderr: null }),
-  },
-}))
+import type { BinaryResolver } from "./types.js"
 
 const baseTunnel = {
   id: "tunnel-123",
@@ -27,8 +12,8 @@ const baseTunnel = {
   connections: [],
 }
 
-describe("Tunnel", () => {
-  const api = {
+function createApi() {
+  return {
     get: vi.fn(),
     delete: vi.fn(),
     accountPath: vi.fn((path: string) => `/accounts/acct${path}`),
@@ -36,14 +21,41 @@ describe("Tunnel", () => {
     put: vi.fn(),
     post: vi.fn(),
   }
+}
+
+function createBinaryResolver(overrides?: Partial<BinaryResolver>): BinaryResolver {
+  return {
+    path: "/managed/cloudflared",
+    isInstalled: vi.fn().mockResolvedValue(true),
+    install: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+function createProcessFactory() {
+  return {
+    start: vi.fn().mockReturnValue({ kind: "process", stderr: null }),
+  }
+}
+
+describe("Tunnel", () => {
+  let api: ReturnType<typeof createApi>
+  let binaryResolver: ReturnType<typeof createBinaryResolver>
+  let processFactory: ReturnType<typeof createProcessFactory>
 
   beforeEach(() => {
-    vi.clearAllMocks()
+    api = createApi()
+    binaryResolver = createBinaryResolver()
+    processFactory = createProcessFactory()
   })
 
   it("caches tokens", async () => {
     api.get.mockResolvedValueOnce("token-123")
-    const tunnel = new Tunnel(baseTunnel, api as any)
+    const tunnel = new Tunnel(baseTunnel, {
+      api: api as any,
+      binaryResolver,
+      processFactory,
+    })
 
     await expect(tunnel.getToken()).resolves.toBe("token-123")
     await expect(tunnel.getToken()).resolves.toBe("token-123")
@@ -65,7 +77,7 @@ describe("Tunnel", () => {
       }],
     })
 
-    const tunnel = new Tunnel(baseTunnel, api as any)
+    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
     await tunnel.refresh()
 
     expect(tunnel.name).toBe("updated-name")
@@ -74,7 +86,7 @@ describe("Tunnel", () => {
   })
 
   it("deletes DNS records before deleting the tunnel", async () => {
-    const tunnel = new Tunnel(baseTunnel, api as any)
+    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
     const order: string[] = []
 
     vi.spyOn(tunnel.dns, "list").mockImplementation(async () => {
@@ -99,24 +111,31 @@ describe("Tunnel", () => {
 
   it("uses a custom binary path without checking managed install state", async () => {
     api.get.mockResolvedValueOnce("token-123")
-    const tunnel = new Tunnel(baseTunnel, api as any, "/custom/cloudflared")
+    const tunnel = new Tunnel(baseTunnel, {
+      api: api as any,
+      binaryPath: "/custom/cloudflared",
+      binaryResolver,
+      processFactory,
+    })
 
     await tunnel.run()
 
-    expect(cloudflared.isInstalled).not.toHaveBeenCalled()
-    expect(cloudflared.install).not.toHaveBeenCalled()
-    expect(TunnelProcess.start).toHaveBeenCalledWith("/custom/cloudflared", "token-123", undefined)
+    expect(binaryResolver.isInstalled).not.toHaveBeenCalled()
+    expect(binaryResolver.install).not.toHaveBeenCalled()
+    expect(processFactory.start).toHaveBeenCalledWith("/custom/cloudflared", "token-123", undefined)
   })
 
   it("installs the managed binary when needed", async () => {
     api.get.mockResolvedValueOnce("token-123")
-    vi.mocked(cloudflared.isInstalled).mockResolvedValueOnce(false)
+    binaryResolver = createBinaryResolver({
+      isInstalled: vi.fn().mockResolvedValue(false),
+    })
 
-    const tunnel = new Tunnel(baseTunnel, api as any)
+    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
     await tunnel.run({ logLevel: "info" })
 
-    expect(cloudflared.install).toHaveBeenCalled()
-    expect(TunnelProcess.start).toHaveBeenCalledWith(
+    expect(binaryResolver.install).toHaveBeenCalled()
+    expect(processFactory.start).toHaveBeenCalledWith(
       "/managed/cloudflared",
       "token-123",
       { logLevel: "info" },
@@ -124,29 +143,29 @@ describe("Tunnel", () => {
   })
 
   it("maps unknown API status values to 'inactive'", () => {
-    const tunnel = new Tunnel({ ...baseTunnel, status: "pending" }, api as any)
+    const tunnel = new Tunnel({ ...baseTunnel, status: "pending" }, { api: api as any, binaryResolver, processFactory })
     expect(tunnel.status).toBe("inactive")
   })
 
   it("maps known API status values correctly", () => {
     for (const status of ["healthy", "inactive", "degraded", "down"] as const) {
-      const tunnel = new Tunnel({ ...baseTunnel, status }, api as any)
+      const tunnel = new Tunnel({ ...baseTunnel, status }, { api: api as any, binaryResolver, processFactory })
       expect(tunnel.status).toBe(status)
     }
   })
 
   it("logs() throws when no process is running", () => {
-    const tunnel = new Tunnel(baseTunnel, api as any)
+    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
     expect(() => tunnel.logs()).toThrow("No running tunnel process")
   })
 
   it("logs() returns a LogStream when a process is running", async () => {
     const { Readable } = await import("node:stream")
     const mockStderr = new Readable({ read() {} })
-    vi.mocked(TunnelProcess.start).mockReturnValueOnce({ kind: "process", stderr: mockStderr } as any)
+    processFactory.start.mockReturnValueOnce({ kind: "process", stderr: mockStderr } as any)
 
     api.get.mockResolvedValueOnce("token-123")
-    const tunnel = new Tunnel(baseTunnel, api as any)
+    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
     await tunnel.run()
 
     const stream = tunnel.logs()
