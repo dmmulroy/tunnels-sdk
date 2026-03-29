@@ -1,5 +1,5 @@
 import { Effect, Layer, ServiceMap } from "effect"
-import type { CfIngressRule, CfTunnelConfig } from "../../api/types.js"
+import { CfIngressRule, type CfTunnelConfig } from "../schemas.js"
 import { TunnelApiError, TunnelAuthError, TunnelSdkError } from "../errors.js"
 import { IngressRule } from "../schemas.js"
 import { CloudflareApi } from "./CloudflareApi.js"
@@ -14,13 +14,13 @@ const mapIngressRule = (rule: CfIngressRule): IngressRule =>
     originRequest: rule.originRequest as Record<string, unknown> | undefined,
   })
 
-const toCfIngressRule = (rule: IngressRule): CfIngressRule => {
-  const result: CfIngressRule = { service: rule.service }
-  if (rule.hostname) result.hostname = rule.hostname
-  if (rule.path) result.path = rule.path
-  if (rule.originRequest) result.originRequest = rule.originRequest as Record<string, unknown>
-  return result
-}
+const toCfIngressRule = (rule: IngressRule): CfIngressRule =>
+  new CfIngressRule({
+    service: rule.service,
+    ...(rule.hostname ? { hostname: rule.hostname } : {}),
+    ...(rule.path ? { path: rule.path } : {}),
+    ...(rule.originRequest ? { originRequest: rule.originRequest as Record<string, unknown> } : {}),
+  })
 
 export class IngressManager extends ServiceMap.Service<
   IngressManager,

@@ -1,5 +1,5 @@
 import { Effect, Layer, ServiceMap, Stream } from "effect"
-import type { CfDnsRecord, CfZone } from "../../api/types.js"
+import type { CfDnsRecord, CfZone } from "../schemas.js"
 import { TunnelApiError, TunnelAuthError, TunnelSdkError } from "../errors.js"
 import { DnsRecord } from "../schemas.js"
 import { CloudflareApi } from "./CloudflareApi.js"

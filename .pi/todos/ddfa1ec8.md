@@ -6,7 +6,8 @@
     "cleanup"
   ],
   "status": "open",
-  "created_at": "2026-03-29T02:51:32.274Z"
+  "created_at": "2026-03-29T02:51:32.274Z",
+  "assigned_to_session": "ecb00d1b-8b64-4599-8217-41495ab1058a"
 }
 
 ## Goal

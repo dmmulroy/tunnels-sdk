@@ -1,5 +1,5 @@
 import { Effect, Layer, ServiceMap } from "effect"
-import type { CfRoute } from "../../api/types.js"
+import type { CfRoute } from "../schemas.js"
 import { TunnelApiError, TunnelAuthError, TunnelSdkError } from "../errors.js"
 import { Route, RouteCheckResult } from "../schemas.js"
 import { CloudflareApi } from "./CloudflareApi.js"

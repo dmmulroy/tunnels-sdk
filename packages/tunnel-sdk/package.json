@@ -57,8 +57,7 @@
   "dependencies": {
     "@effect/platform-node": "beta",
     "effect": "beta",
-    "yaml": "^2.7.1",
-    "zod": "^3.24.3"
+    "yaml": "^2.7.1"
   },
   "devDependencies": {
     "@effect/vitest": "beta",

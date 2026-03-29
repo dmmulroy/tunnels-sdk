@@ -1,5 +1,5 @@
 import { Effect, Layer, ServiceMap, Stream } from "effect"
-import type { CfTunnel } from "../../api/types.js"
+import type { CfTunnel } from "../schemas.js"
 import {
   TunnelApiError,
   TunnelAuthError,

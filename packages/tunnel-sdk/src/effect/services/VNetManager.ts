@@ -1,5 +1,5 @@
 import { Effect, Layer, ServiceMap } from "effect"
-import type { CfVirtualNetwork } from "../../api/types.js"
+import type { CfVirtualNetwork } from "../schemas.js"
 import { TunnelApiError, TunnelAuthError, TunnelSdkError } from "../errors.js"
 import { VNet } from "../schemas.js"
 import { CloudflareApi } from "./CloudflareApi.js"
