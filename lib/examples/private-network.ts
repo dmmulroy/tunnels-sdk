@@ -9,7 +9,7 @@ const client = new TunnelClient({
 await client.vnets.create("production")
 await client.vnets.create("staging")
 
-// Create a tunnel for the production network
+// Create a tunnel with private network routes
 const tunnel = await client.tunnels.create("prod-network", {
   routes: [
     { network: "10.0.0.0/8", vnet: "production", comment: "Production VPC" },
@@ -17,19 +17,15 @@ const tunnel = await client.tunnels.create("prod-network", {
   ],
 })
 
-// Run the tunnel
-await using connection = await tunnel.run()
-await connection.waitUntilHealthy()
-
-console.log("Production network tunnel is live")
+console.log("Production network tunnel created")
 console.log("Routes:")
-const routes = await tunnel.routes.list()
+const routes = await client.routes.list(tunnel.id)
 for (const route of routes) {
   console.log(`  ${route.network} (${route.comment ?? "no comment"}) [vnet: ${route.vnet}]`)
 }
 
 // Verify a specific IP is routable
-const check = await tunnel.routes.check("10.1.5.42")
+const check = await client.routes.check("10.1.5.42")
 if (check) {
   console.log(`\n10.1.5.42 is reachable via tunnel "${check.tunnel}" (${check.route})`)
 } else {
@@ -42,4 +38,8 @@ for (const vnet of vnets) {
   console.log(`${vnet.name} ${vnet.isDefault ? "(default)" : ""}`)
 }
 
-await connection.waitUntilExit()
+// Cleanup
+await client.tunnels.delete(tunnel.id, { force: true })
+await client.vnets.delete("production")
+await client.vnets.delete("staging")
+await client.dispose()

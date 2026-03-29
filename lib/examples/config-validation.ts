@@ -1,82 +1,55 @@
-import { TunnelConfig } from "tunnel-sdk"
+import { Effect, Exit } from "effect"
+import { parseConfig, parseConfigFromYaml, parseConfigFromFile } from "tunnel-sdk"
 
-// --- Missing catch-all with autoFallback disabled ---
+// --- Validate a config object ---
 
-const result = TunnelConfig.safeParse({
-  autoFallback: false,
-  ingress: [
-    { hostname: "app.example.com", service: "http://localhost:3000" },
-  ],
-})
-
-if (!result.success) {
-  console.error("Config validation failed:")
-  console.error(result.error.format())
-  // Ingress rules must end with a catch-all rule (no hostname).
-  // Add { service: "http_status:404" } as the last rule,
-  // or set autoFallback: true.
-}
-
-// --- Auto-fallback appends catch-all (default behavior) ---
-
-const config = TunnelConfig.parse({
-  ingress: [
-    { hostname: "app.example.com", service: "http://localhost:3000" },
-  ],
-})
-// autoFallback defaults to true — catch-all is auto-appended.
-console.log(config.ingress)
-// [
-//   { hostname: "app.example.com", service: "http://localhost:3000" },
-//   { service: "http_status:404" }
-// ]
-
-// --- Load from YAML file ---
-
-const fileConfig = await TunnelConfig.fromFile("./cft.yaml")
-console.log(`Loaded config with ${fileConfig.ingress.length} ingress rules`)
-
-// --- Load from YAML string ---
-
-const yamlConfig = TunnelConfig.fromYaml(`
-  ingress:
-    - hostname: app.example.com
-      service: http://localhost:3000
-    - service: http_status:404
-`)
-
-// --- Detect typos in keys (strict mode rejects unknown keys) ---
-
-try {
-  TunnelConfig.parse({
-    ingress: [
-      {
-        hostname: "app.example.com",
-        service: "http://localhost:3000",
-        originRequest: {
-          connetTimeout: "30s", // typo!
-        },
-      },
-      { service: "http_status:404" },
-    ],
-  })
-} catch (err) {
-  console.error(err)
-  // ZodError: Unrecognized key(s) in object: 'connetTimeout'
-}
-
-// --- Detect duplicate hostnames ---
-
-try {
-  TunnelConfig.parse({
+const result = Effect.runSyncExit(
+  parseConfig({
     ingress: [
       { hostname: "app.example.com", service: "http://localhost:3000" },
-      { hostname: "app.example.com", service: "http://localhost:3001" }, // duplicate!
       { service: "http_status:404" },
     ],
-  })
-} catch (err) {
-  console.error(err)
-  // ZodError: Duplicate hostname "app.example.com" in ingress rules
-  // at index 0 and 1. Each hostname must appear at most once.
+  }),
+)
+
+if (Exit.isSuccess(result)) {
+  console.log("Config is valid!")
+  console.log("Ingress rules:", result.value.ingress)
+} else {
+  console.error("Validation failed:", result.cause)
 }
+
+// --- Parse from YAML string ---
+
+const yamlResult = Effect.runSyncExit(
+  parseConfigFromYaml(`
+ingress:
+  - hostname: app.example.com
+    service: http://localhost:3000
+  - service: http_status:404
+`),
+)
+
+if (Exit.isSuccess(yamlResult)) {
+  console.log("YAML config parsed successfully")
+  console.log(`${yamlResult.value.ingress.length} ingress rules`)
+}
+
+// --- Parse from a YAML file (async) ---
+
+const fileResult = await Effect.runPromiseExit(
+  parseConfigFromFile("./cft.yaml"),
+)
+
+if (Exit.isSuccess(fileResult)) {
+  console.log(`Loaded config with ${fileResult.value.ingress.length} ingress rules`)
+} else {
+  console.error("Failed to load config file")
+}
+
+// --- Config validation catches issues like: ---
+// - Missing catch-all rule
+// - Duplicate hostnames
+// - Invalid originRequest keys (typos in connectTimeout, etc.)
+// - Invalid CIDR ranges in warp-routing
+// - Invalid service URLs

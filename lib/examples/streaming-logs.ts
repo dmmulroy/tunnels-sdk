@@ -1,40 +1,59 @@
-import { TunnelClient } from "tunnel-sdk"
+/**
+ * Streaming logs example using the Effect SDK directly.
+ *
+ * The TunnelProcessService provides a RunningTunnel with event and log streams.
+ * This example shows how to consume them with Effect Streams.
+ */
+import { Effect, Stream, Redacted } from "effect"
+import {
+  TunnelOperations,
+  TunnelProcessService,
+  LiveLayer,
+  CloudflareApiConfig,
+} from "tunnel-sdk/effect"
 
-const client = new TunnelClient({
+const config = new CloudflareApiConfig({
   accountId: process.env.CF_ACCOUNT_ID!,
-  apiToken: process.env.CF_API_TOKEN!,
+  apiToken: Redacted.make(process.env.CF_API_TOKEN!),
 })
 
-const tunnel = await client.tunnels.get("my-app")
+const program = Effect.gen(function* () {
+  const ops = yield* TunnelOperations
+  const process = yield* TunnelProcessService
 
-// Run the tunnel first — logs() streams from the running process
-await using connection = await tunnel.run()
-await connection.waitUntilHealthy()
+  // Get the tunnel and its token
+  const tunnel = yield* ops.get("my-app")
+  const token = yield* ops.getToken(tunnel.id)
 
-// Stream all logs
-console.log("--- All logs ---")
-for await (const entry of tunnel.logs()) {
-  const ts = entry.timestamp.toISOString()
-  console.log(`[${ts}] ${entry.level.toUpperCase()} ${entry.message}`)
-}
+  // Run the tunnel process (scoped — auto-cleans up when scope closes)
+  const running = yield* process.run(token, { logLevel: "info" })
 
-// Stream only errors from the last 5 minutes
-console.log("\n--- Recent errors ---")
-for await (const entry of tunnel.logs({ level: "error", since: "5m" })) {
-  console.error(`[ERROR] ${entry.message}`)
-}
+  // Wait for the tunnel to become healthy
+  yield* running.waitUntilHealthy
 
-// Collect into an array
-const recentErrors = await tunnel
-  .logs({ level: "error", since: "1h" })
-  .toArray()
+  // Stream events — filter for status changes
+  yield* running.events.pipe(
+    Stream.filter((e) => e._tag === "Status"),
+    Stream.take(10), // Take first 10 status events
+    Stream.runForEach((e) =>
+      Effect.log(`Status: ${e._tag === "Status" ? e.status : "unknown"}`),
+    ),
+  )
 
-console.log(`\n${recentErrors.length} errors in the last hour`)
+  // Stream logs — all log entries from the process
+  yield* running.logs.pipe(
+    Stream.take(100), // Take first 100 log entries
+    Stream.runForEach((entry) =>
+      Effect.log(`[${entry.level}] ${entry.message}`),
+    ),
+  )
 
-// Use with AbortController for time-limited collection
-const controller = new AbortController()
-setTimeout(() => controller.abort(), 10_000) // stop after 10s
+  // Wait for the process to exit
+  const code = yield* running.exitCode
+  yield* Effect.log(`Tunnel exited with code ${code}`)
+}).pipe(
+  Effect.scoped,
+  Effect.provide(LiveLayer(config)),
+)
 
-for await (const entry of tunnel.logs({ signal: controller.signal })) {
-  console.log(entry.message)
-}
+Effect.runPromise(program).catch(console.error)

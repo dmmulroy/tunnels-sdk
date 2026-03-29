@@ -15,26 +15,24 @@ const tunnel = await client.tunnels.create("my-app", {
 })
 
 console.log(`Tunnel "${tunnel.name}" created (${tunnel.id})`)
+console.log(`Status: ${tunnel.status}`)
+console.log(`Connections: ${tunnel.connections.length}`)
 
-// Run the tunnel
-await using connection = await tunnel.run()
+// Get a tunnel token (for running cloudflared manually or in another process)
+const token = await client.tunnels.getToken(tunnel.id)
+console.log(`Token: ${token.slice(0, 20)}...`)
 
-// Wait for all 4 connections to be established
-await connection.waitUntilHealthy()
-
-console.log(`Status: ${connection.status}`)
-for (const conn of connection.connectors) {
-  console.log(`  → ${conn.location} (${conn.ip})`)
+// List all tunnels
+const tunnels = await client.tunnels.list({ status: "healthy" })
+for (const t of tunnels) {
+  console.log(`  ${t.name} (${t.status}) — ${t.connections.length} connections`)
 }
 
-// Listen for events
-connection.on("error", (err) => {
-  console.error(`Tunnel error: ${err.message} (retryable: ${err.retryable})`)
-})
+// Paginate through all tunnels
+for await (const t of client.tunnels.listAll()) {
+  console.log(`  ${t.name}`)
+}
 
-connection.on("metrics", (m) => {
-  console.log(`${m.rps} req/s — p50: ${m.p50Ms}ms, p99: ${m.p99Ms}ms`)
-})
-
-// Keep running until SIGINT/SIGTERM
-await connection.waitUntilExit()
+// Cleanup
+await client.tunnels.delete("my-app", { force: true, cleanupDns: true })
+await client.dispose()

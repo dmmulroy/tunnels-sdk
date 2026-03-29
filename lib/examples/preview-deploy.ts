@@ -16,9 +16,7 @@ const tunnel = await client.tunnels.create(`preview-pr-${prNumber}`, {
   dns: { auto: true },
 })
 
-// Run the tunnel
-await using connection = await tunnel.run()
-await connection.waitUntilHealthy()
+console.log(`Preview tunnel "${tunnel.name}" created (${tunnel.id})`)
 
 // Post URL to GitHub PR
 await octokit.issues.createComment({
@@ -30,10 +28,10 @@ await octokit.issues.createComment({
 
 console.log(`Preview live at https://${hostname}`)
 
-// Keep alive until process is killed.
-// On exit, delete the tunnel and clean up DNS.
-try {
-  await connection.waitUntilExit()
-} finally {
-  await tunnel.delete({ force: true, cleanupDns: true })
-}
+// Cleanup when done
+process.on("SIGINT", async () => {
+  console.log("Cleaning up preview tunnel...")
+  await client.tunnels.delete(tunnel.id, { force: true, cleanupDns: true })
+  await client.dispose()
+  process.exit(0)
+})

@@ -142,60 +142,32 @@ await client.tunnels.delete("my-app", {
 
 ---
 
-### `Tunnel` Object
+### `TunnelInfo` Object
 
-The `Tunnel` object is the core primitive. It represents a tunnel and provides methods for all tunnel operations.
+`TunnelInfo` is an immutable data object. Sub-resource operations are on the client, not the tunnel.
 
 ```ts
 const tunnel = await client.tunnels.get("my-app")
 
-// Properties (snapshot from the last API fetch)
+// Properties
 tunnel.id          // "c1744f8b-faa1-48a4-9e5c-02ac921467fa"
 tunnel.name        // "my-app"
 tunnel.status      // "healthy" | "inactive" | "degraded" | "down"
-tunnel.createdAt   // Date
+tunnel.createdAt   // string (ISO 8601)
 tunnel.connections // TunnelConnection[]
 
-// Refresh the snapshot when you need the latest state
-await tunnel.refresh()
-const token = await tunnel.getToken()
-```
-
-#### Running a Tunnel
-
-```ts
-// Run the tunnel (starts cloudflared process)
-const connection = await tunnel.run()
-
-// Connection info
-connection.status       // "healthy"
-connection.connectors   // [{ id, colo, ip, location }]
-
-// Wait for healthy state
-await connection.waitUntilHealthy()
-// Resolves when 4 connections established, rejects on timeout
-
-// Graceful shutdown
-await connection.close()
-
-// Or with resource management
-await using connection = await tunnel.run()
-// auto-closes on scope exit
+// Get a token for running cloudflared
+const token = await client.tunnels.getToken(tunnel.id)
 ```
 
 #### Ingress Management
 
 ```ts
-// List rules
-const rules = await tunnel.ingress.list()
-// [
-//   { hostname: "app.example.com", service: "http://localhost:3000", originRequest: {...} },
-//   { hostname: "api.example.com", service: "http://localhost:8080", originRequest: {...} },
-//   { service: "http_status:404" }  // catch-all
-// ]
+// List rules for a tunnel
+const rules = await client.ingress.list(tunnel.id)
 
 // Add a rule
-await tunnel.ingress.add({
+await client.ingress.add(tunnel.id, {
   hostname: "new.example.com",
   service: "http://localhost:9090",
   originRequest: {
@@ -205,10 +177,10 @@ await tunnel.ingress.add({
 })
 
 // Remove a rule
-await tunnel.ingress.remove("old.example.com")
+await client.ingress.remove(tunnel.id, "old.example.com")
 
 // Replace all rules
-await tunnel.ingress.set([
+await client.ingress.set(tunnel.id, [
   { hostname: "app.example.com", service: "http://localhost:3000" },
   { hostname: "api.example.com", service: "http://localhost:8080" },
   // catch-all auto-appended if missing
@@ -219,20 +191,20 @@ await tunnel.ingress.set([
 
 ```ts
 // Create CNAME record pointing to this tunnel
-await tunnel.dns.ensure("app.example.com")
+await client.dns.ensure(tunnel.id, "app.example.com")
 // Idempotent — creates if missing, no-ops if exists and correct
 
 // Create with options
-await tunnel.dns.ensure("app.example.com", {
+await client.dns.ensure(tunnel.id, "app.example.com", {
   proxied: true,   // default: true
   ttl: 300,        // only applies if proxied is false
 })
 
 // Remove
-await tunnel.dns.remove("old.example.com")
+await client.dns.remove(tunnel.id, "old.example.com")
 
 // List DNS records pointing to this tunnel
-const records = await tunnel.dns.list()
+const records = await client.dns.list(tunnel.id)
 // [{ hostname: "app.example.com", type: "CNAME", content: "c1744f8b.cfargotunnel.com" }]
 ```
 
@@ -240,20 +212,20 @@ const records = await tunnel.dns.list()
 
 ```ts
 // Add a route
-await tunnel.routes.add("172.16.0.0/16")
-await tunnel.routes.add("10.0.0.0/8", { vnet: "production" })
+await client.routes.add(tunnel.id, "172.16.0.0/16")
+await client.routes.add(tunnel.id, "10.0.0.0/8", { vnet: "production" })
 
 // List routes
-const routes = await tunnel.routes.list()
+const routes = await client.routes.list(tunnel.id)
 
 // Check which tunnel/route handles an IP (returns null if no route)
-const result = await tunnel.routes.check("172.16.5.42")
+const result = await client.routes.check("172.16.5.42")
 if (result) {
   // { tunnel: "my-app", route: "172.16.0.0/16", vnet: "default" }
 }
 
 // Remove a route
-await tunnel.routes.remove("172.16.0.0/16")
+await client.routes.remove(tunnel.id, "172.16.0.0/16")
 ```
 
 #### Virtual Networks
@@ -265,126 +237,88 @@ await client.vnets.create("staging", { default: true })
 await client.vnets.delete("staging")
 ```
 
----
-
-### Streaming Logs (Async Iterators)
-
-`tunnel.logs()` streams from the running `cloudflared` process. Call `tunnel.run()` first.
+#### Cleanup
 
 ```ts
-const connection = await tunnel.run()
-await connection.waitUntilHealthy()
-
-// Stream all logs — async iterator with backpressure
-for await (const entry of tunnel.logs()) {
-  console.log(entry.timestamp, entry.level, entry.message)
-}
-
-// Every entry is fully typed
-// {
-//   timestamp: Date
-//   level: "info" | "warn" | "error" | "debug"
-//   event: string
-//   message: string
-//   connectorId?: string
-//   ...extra fields depending on event type
-// }
-
-// With filters
-for await (const entry of tunnel.logs({ level: "error", since: "5m" })) {
-  alertSlack(entry)
-}
-
-// Collect into array (careful with long-running tunnels)
-const recentErrors = await tunnel.logs({ level: "error", since: "1h" }).toArray()
+// Always dispose the client when done
+await client.dispose()
 ```
 
 ---
 
-### Typed Events
+### Effect SDK (Advanced)
+
+For full power, use the Effect SDK directly via `tunnel-sdk/effect`:
 
 ```ts
-const connection = await tunnel.run()
+import { Effect, Redacted, Stream } from "effect"
+import { TunnelOperations, DnsManager, LiveLayer, CloudflareApiConfig } from "tunnel-sdk/effect"
 
-// Every event is typed — no `any`
-connection.on("connected", (conn: ConnectorInfo) => {
-  // { id: string, colo: string, ip: string, location: string }
-  console.log(`Connected to ${conn.location}`)
+const config = new CloudflareApiConfig({
+  accountId: process.env.CF_ACCOUNT_ID!,
+  apiToken: Redacted.make(process.env.CF_API_TOKEN!),
 })
 
-connection.on("disconnected", (conn: ConnectorInfo) => {
-  console.log(`Lost connection to ${conn.location}`)
-})
+const program = Effect.gen(function* () {
+  const tunnels = yield* TunnelOperations
+  const dns = yield* DnsManager
 
-connection.on("reconnecting", (attempt: ReconnectAttempt) => {
-  // { number: number, delay: number, connector: ConnectorInfo }
-  console.log(`Reconnecting... attempt ${attempt.number}`)
-})
+  // Create a tunnel
+  const tunnel = yield* tunnels.create("my-app", {
+    ingress: [{ hostname: "app.example.com", service: "http://localhost:3000" }],
+    dns: { auto: true },
+  })
 
-connection.on("error", (err: TunnelError) => {
-  // { code: string, message: string, retryable: boolean, connector?: ConnectorInfo }
-  if (!err.retryable) process.exit(1)
-})
+  // Stream all tunnels
+  yield* tunnels.listAll().pipe(
+    Stream.runForEach((t) => Effect.log(`${t.name} — ${t.status}`)),
+  )
 
-connection.on("metrics", (m: TunnelMetrics) => {
-  // { rps: number, p50Ms: number, p99Ms: number, activeConns: number, bytesIn: number, bytesOut: number }
-  prometheus.gauge("tunnel_rps", m.rps)
-})
+  // Cleanup
+  yield* tunnels.del(tunnel.id, { force: true, cleanupDns: true })
+}).pipe(Effect.provide(LiveLayer(config)))
 
-connection.on("status", (s: TunnelStatus) => {
-  // "healthy" | "degraded" | "inactive" | "down"
-  if (s === "degraded") pagerduty.alert("Tunnel degraded")
-})
+Effect.runPromise(program)
 ```
+
+See `lib/examples/effect-basic.ts` and `lib/examples/effect-testing.ts` for more.
 
 ---
 
-### Config Validation (Zod-Powered)
+### Config Validation (Effect-Powered)
 
 ```ts
-import { TunnelConfig } from "tunnel-sdk"
+import { Effect, Exit } from "effect"
+import { parseConfig, parseConfigFromYaml, parseConfigFromFile } from "tunnel-sdk"
 
-// Validate with autoFallback disabled — requires explicit catch-all
-const result = TunnelConfig.safeParse({
-  autoFallback: false,
-  ingress: [
-    { hostname: "app.example.com", service: "http://localhost:3000" },
-  ],
-})
+// Validate a config object
+const result = Effect.runSyncExit(
+  parseConfig({
+    ingress: [
+      { hostname: "app.example.com", service: "http://localhost:3000" },
+      { service: "http_status:404" },
+    ],
+  }),
+)
 
-if (!result.success) {
-  console.error(result.error.format())
-  // Ingress rules must end with a catch-all rule (no hostname).
-  // Add { service: "http_status:404" } as the last rule,
-  // or set autoFallback: true.
+if (Exit.isSuccess(result)) {
+  console.log("Config is valid!")
 }
 
-// With autoFallback: true (the default), catch-all is auto-appended
-const autoConfig = TunnelConfig.parse({
-  ingress: [
-    { hostname: "app.example.com", service: "http://localhost:3000" },
-  ],
-})
-// autoConfig.ingress has 2 rules — catch-all was appended
+// Parse from YAML string
+const config = Effect.runSync(
+  parseConfigFromYaml(`
+    ingress:
+      - hostname: app.example.com
+        service: http://localhost:3000
+      - service: http_status:404
+  `),
+)
 
-// Parse (throws on invalid)
-const config = TunnelConfig.parse({
-  ingress: [
-    { hostname: "app.example.com", service: "http://localhost:3000" },
-    { service: "http_status:404" },
-  ],
-})
-
-// Load from YAML file with validation
-const config = await TunnelConfig.fromFile("./cft.yaml")
-
-// Load from YAML string
-const config = TunnelConfig.fromYaml(`
-  ingress:
-    - hostname: app.example.com
-      service: http://localhost:3000
-    - service: http_status:404
-`)
+// Load from YAML file (async)
+const fileConfig = await Effect.runPromise(
+  parseConfigFromFile("./cft.yaml"),
+)
 ```
 
 #### Validation Rules
@@ -442,28 +376,24 @@ const client = new TunnelClient({
 interface TunnelClientOptions {
   accountId: string
   apiToken: string
-  binaryPath?: string          // override auto-managed binary
   baseUrl?: string             // override API base URL (testing)
 }
 
-interface Tunnel {
+// TunnelClient has sub-clients for each resource:
+// client.tunnels  — CRUD, listAll, getToken
+// client.ingress  — add, remove, set, list (takes tunnelId)
+// client.dns      — ensure, remove, list (takes tunnelId)
+// client.routes   — add, remove, list, check (takes tunnelId)
+// client.vnets    — create, delete, list
+
+interface TunnelInfo {
   id: string
   name: string
   status: TunnelStatus
-  createdAt: Date
-  deletedAt: Date | null
+  createdAt: string
+  deletedAt: string | null
   connections: TunnelConnection[]
   remoteConfig: boolean
-
-  ingress: IngressManager
-  dns: DnsManager
-  routes: RouteManager
-
-  refresh(): Promise<this>
-  run(options?: RunOptions): Promise<TunnelProcess>
-  logs(options?: { level?: LogEntry["level"]; since?: string; signal?: AbortSignal }): LogStream
-  delete(options?: DeleteOptions): Promise<void>
-  getToken(): Promise<string>
 }
 
 type TunnelStatus = "healthy" | "inactive" | "degraded" | "down"
@@ -630,7 +560,7 @@ interface TunnelConfig {
 | Binary management | ❌ | ✅ (manual) | ✅ (invisible, version-locked) |
 | Run tunnel process | ❌ | ✅ (raw spawn) | ✅ (managed, events, cleanup) |
 | Typed events | ❌ | ❌ | ✅ (full event map) |
-| Config validation | ❌ | ❌ | ✅ (Zod schemas) |
+| Config validation | ❌ | ❌ | ✅ (Effect schemas) |
 | Streaming logs | ❌ | ❌ | ✅ (async iterators) |
 | Disposable / cleanup | ❌ | ❌ | ✅ (`using` / `.close()`) |
 | DNS auto-management | ❌ | ❌ | ✅ (`.dns.ensure()`) |

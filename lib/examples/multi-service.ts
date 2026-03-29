@@ -20,14 +20,14 @@ const tunnel = await client.tunnels.create("platform", {
 })
 
 // Later: add a new service without touching existing ones
-await tunnel.ingress.add({
+await client.ingress.add(tunnel.id, {
   hostname: "admin.example.com",
   service: "http://localhost:9090",
-})
-await tunnel.dns.ensure("admin.example.com")
+} as any)
+await client.dns.ensure(tunnel.id, "admin.example.com")
 
 // List all ingress rules
-const rules = await tunnel.ingress.list()
+const rules = await client.ingress.list(tunnel.id)
 for (const rule of rules) {
   if (rule.hostname) {
     console.log(`${rule.hostname} → ${rule.service}`)
@@ -37,27 +37,19 @@ for (const rule of rules) {
 }
 
 // Add private network routes
-await tunnel.routes.add("172.16.0.0/16")
-await tunnel.routes.add("10.0.0.0/8", { vnet: "production" })
+await client.routes.add(tunnel.id, "172.16.0.0/16")
+await client.routes.add(tunnel.id, "10.0.0.0/8", { vnet: "production" })
 
 // Check route resolution
-const check = await tunnel.routes.check("172.16.5.42")
+const check = await client.routes.check("172.16.5.42")
 if (check) {
   console.log(`172.16.5.42 → tunnel "${check.tunnel}" via ${check.route}`)
 }
 
 // Remove a service
-await tunnel.ingress.remove("docs.example.com")
-await tunnel.dns.remove("docs.example.com")
+await client.ingress.remove(tunnel.id, "docs.example.com")
+await client.dns.remove(tunnel.id, "docs.example.com")
 
-// Run with monitoring
-await using connection = await tunnel.run()
-await connection.waitUntilHealthy()
-
-connection.on("status", (status) => {
-  if (status === "degraded") {
-    console.warn("⚠️  Tunnel degraded — some connections lost")
-  }
-})
-
-await connection.waitUntilExit()
+// Cleanup
+await client.tunnels.delete(tunnel.id, { force: true, cleanupDns: true })
+await client.dispose()
