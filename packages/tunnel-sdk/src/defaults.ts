@@ -1,5 +1,5 @@
 import type { IApiClient } from "./api/interfaces.js"
-import { cloudflared } from "./bin/cloudflared.js"
+import { cloudflared } from "./bin/index.js"
 import { TunnelProcess } from "./process.js"
 import type { TunnelDeps } from "./tunnel.js"
 

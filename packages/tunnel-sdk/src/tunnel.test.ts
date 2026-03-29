@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { createMockApi, type MockApiClient } from "./test-utils.js"
 import { Tunnel } from "./tunnel.js"
-import type { BinaryResolver } from "./tunnel.js"
+import type { BinaryResolver } from "./bin/index.js"
 
 const baseTunnel = {
   id: "tunnel-123",

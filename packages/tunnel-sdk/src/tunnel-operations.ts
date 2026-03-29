@@ -1,8 +1,10 @@
 import type { IApiClient } from "./api/interfaces.js"
 import type { CfTunnel } from "./api/types.js"
+import type { BinaryResolver } from "./bin/index.js"
 import type { IngressRule } from "./managers/ingress/index.js"
-import type { BinaryResolver, DeleteOptions, TunnelStatus } from "./tunnel.js"
-import { Tunnel, type ProcessFactory } from "./tunnel.js"
+import type { ProcessFactory, TunnelStatus } from "./process.js"
+import { Tunnel } from "./tunnel.js"
+import type { DeleteOptions } from "./tunnel.js"
 import { TunnelNotFoundError, TunnelSdkError } from "./errors.js"
 
 export interface TunnelListOptions {
@@ -19,13 +21,25 @@ export interface CreateTunnelOptions {
   routes?: Array<{ network: string; vnet?: string; comment?: string }>
 }
 
+export interface TunnelOperationsDeps {
+  api: IApiClient
+  binaryPath?: string
+  processFactory?: ProcessFactory
+  binaryResolver?: BinaryResolver
+}
+
 export class TunnelOperations {
-  constructor(
-    private readonly api: IApiClient,
-    private readonly binaryPath?: string,
-    private readonly processFactory?: ProcessFactory,
-    private readonly binaryResolver?: BinaryResolver,
-  ) {}
+  private readonly api: IApiClient
+  private readonly binaryPath?: string
+  private readonly processFactory?: ProcessFactory
+  private readonly binaryResolver?: BinaryResolver
+
+  constructor(deps: TunnelOperationsDeps) {
+    this.api = deps.api
+    this.binaryPath = deps.binaryPath
+    this.processFactory = deps.processFactory
+    this.binaryResolver = deps.binaryResolver
+  }
 
   private tunnelDeps() {
     return {

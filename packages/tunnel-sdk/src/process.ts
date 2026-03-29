@@ -1,7 +1,8 @@
 import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from "node:child_process"
 import { EventEmitter } from "node:events"
 import { createInterface } from "node:readline"
-import type { TunnelStatus } from "./tunnel.js"
+
+export type TunnelStatus = "healthy" | "inactive" | "degraded" | "down"
 
 export interface ProcessSpawner {
   spawn(command: string, args: string[], options: SpawnOptions): ChildProcess
@@ -53,6 +54,10 @@ export interface TunnelProcessEvents {
   metrics: (metrics: TunnelMetrics) => void
   status: (status: TunnelStatus) => void
   exit: (code: number) => void
+}
+
+export interface ProcessFactory {
+  start(binaryPath: string, token: string, options?: RunOptions): TunnelProcess
 }
 
 const defaultSpawner: ProcessSpawner = { spawn: nodeSpawn }

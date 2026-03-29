@@ -1,13 +1,12 @@
 import type { IApiClient } from "./api/interfaces.js"
 import type { CfTunnel } from "./api/types.js"
+import type { BinaryResolver } from "./bin/index.js"
 import { LogStream } from "./logs.js"
 import type { LogEntry } from "./logs.js"
 import { DnsManager } from "./managers/dns/index.js"
 import { IngressManager } from "./managers/ingress/index.js"
 import { RouteManager } from "./managers/routes/index.js"
-import { TunnelProcess, type RunOptions } from "./process.js"
-
-export type TunnelStatus = "healthy" | "inactive" | "degraded" | "down"
+import { TunnelProcess, type RunOptions, type TunnelStatus, type ProcessFactory } from "./process.js"
 
 export interface TunnelConnection {
   id: string
@@ -22,16 +21,6 @@ export interface TunnelConnection {
 export interface DeleteOptions {
   force?: boolean
   cleanupDns?: boolean
-}
-
-export interface BinaryResolver {
-  readonly path: string
-  isInstalled(): Promise<boolean>
-  install(): Promise<void>
-}
-
-export interface ProcessFactory {
-  start(binaryPath: string, token: string, options?: RunOptions): TunnelProcess
 }
 
 export interface TunnelDeps {

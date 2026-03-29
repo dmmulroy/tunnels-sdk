@@ -21,7 +21,7 @@ describe("TunnelOperations", () => {
 
   it("create() calls API and returns a Tunnel", async () => {
     api.post.mockResolvedValueOnce(baseCfTunnel)
-    const ops = new TunnelOperations(api)
+    const ops = new TunnelOperations({ api })
 
     const tunnel = await ops.create("my-tunnel")
     expect(tunnel.id).toBe("t-1")
@@ -35,7 +35,7 @@ describe("TunnelOperations", () => {
     api.get.mockResolvedValueOnce({ config: { ingress: [] } })
     api.put.mockResolvedValueOnce(undefined)
 
-    const ops = new TunnelOperations(api)
+    const ops = new TunnelOperations({ api })
     await ops.create("my-tunnel", {
       ingress: [{ hostname: "app.example.com", service: "http://localhost:3000" }],
     })
@@ -55,7 +55,7 @@ describe("TunnelOperations", () => {
       .mockResolvedValueOnce([])
     api.post.mockResolvedValueOnce(undefined)
 
-    const ops = new TunnelOperations(api)
+    const ops = new TunnelOperations({ api })
     await ops.create("my-tunnel", {
       ingress: [{ hostname: "app.example.com", service: "http://localhost:3000" }],
       dns: { auto: true },
@@ -68,7 +68,7 @@ describe("TunnelOperations", () => {
   it("list() returns Tunnel instances", async () => {
     api.get.mockResolvedValueOnce([baseCfTunnel])
 
-    const ops = new TunnelOperations(api)
+    const ops = new TunnelOperations({ api })
     const tunnels = await ops.list()
 
     expect(tunnels).toHaveLength(1)
@@ -79,7 +79,7 @@ describe("TunnelOperations", () => {
     const uuidTunnel = { ...baseCfTunnel, id: "12345678-1234-1234-1234-123456789012" }
     api.get.mockResolvedValueOnce(uuidTunnel)
 
-    const ops = new TunnelOperations(api)
+    const ops = new TunnelOperations({ api })
     const tunnel = await ops.get("12345678-1234-1234-1234-123456789012")
 
     expect(tunnel.id).toBe("12345678-1234-1234-1234-123456789012")
@@ -88,7 +88,7 @@ describe("TunnelOperations", () => {
   it("get() finds tunnel by name", async () => {
     api.get.mockResolvedValueOnce([baseCfTunnel])
 
-    const ops = new TunnelOperations(api)
+    const ops = new TunnelOperations({ api })
     const tunnel = await ops.get("my-tunnel")
 
     expect(tunnel.name).toBe("my-tunnel")

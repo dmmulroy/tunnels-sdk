@@ -1,7 +1,7 @@
 import { ApiClient } from "./api/client.js"
 import type { IApiClient } from "./api/interfaces.js"
-import type { BinaryResolver } from "./tunnel.js"
-import type { ProcessFactory } from "./tunnel.js"
+import type { BinaryResolver } from "./bin/index.js"
+import type { ProcessFactory } from "./process.js"
 import { TunnelOperations } from "./tunnel-operations.js"
 import { VNetManager } from "./managers/vnets/index.js"
 
@@ -33,12 +33,12 @@ export class TunnelClient {
       fetch: options.fetch,
     })
 
-    this.tunnels = new TunnelOperations(
-      this.api,
-      options.binaryPath,
-      deps?.processFactory,
-      deps?.binaryResolver,
-    )
+    this.tunnels = new TunnelOperations({
+      api: this.api,
+      binaryPath: options.binaryPath,
+      processFactory: deps?.processFactory,
+      binaryResolver: deps?.binaryResolver,
+    })
     this.vnets = new VNetManager(this.api)
   }
 }

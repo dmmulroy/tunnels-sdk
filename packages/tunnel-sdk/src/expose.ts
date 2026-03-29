@@ -1,6 +1,6 @@
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process"
 import { createInterface } from "node:readline"
-import type { BinaryResolver } from "./tunnel.js"
+import type { BinaryResolver } from "./bin/index.js"
 import type { ProcessSpawner } from "./process.js"
 
 export interface ExposeOptions {
