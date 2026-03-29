@@ -1,19 +1,41 @@
-import type { ApiClient } from "./api/client.js"
+import type { IApiClient } from "./api/interfaces.js"
 import type { CfTunnel } from "./api/types.js"
-import type { BinaryResolver, DeleteOptions, LogEntry, RunOptions, TunnelConnection, TunnelStatus } from "./types.js"
-import { cloudflared } from "./bin/cloudflared.js"
 import { LogStream } from "./logs.js"
-import { DnsManager } from "./managers/dns.js"
-import { IngressManager } from "./managers/ingress.js"
-import { RouteManager } from "./managers/routes.js"
-import { TunnelProcess } from "./process.js"
+import type { LogEntry } from "./logs.js"
+import { DnsManager } from "./managers/dns/index.js"
+import { IngressManager } from "./managers/ingress/index.js"
+import { RouteManager } from "./managers/routes/index.js"
+import { TunnelProcess, type RunOptions } from "./process.js"
+
+export type TunnelStatus = "healthy" | "inactive" | "degraded" | "down"
+
+export interface TunnelConnection {
+  id: string
+  colo: string
+  ip: string
+  location: string
+  openedAt: Date
+  clientVersion: string
+  isPendingReconnect: boolean
+}
+
+export interface DeleteOptions {
+  force?: boolean
+  cleanupDns?: boolean
+}
+
+export interface BinaryResolver {
+  readonly path: string
+  isInstalled(): Promise<boolean>
+  install(): Promise<void>
+}
 
 export interface ProcessFactory {
   start(binaryPath: string, token: string, options?: RunOptions): TunnelProcess
 }
 
 export interface TunnelDeps {
-  api: ApiClient
+  api: IApiClient
   binaryPath?: string
   binaryResolver?: BinaryResolver
   processFactory?: ProcessFactory
@@ -50,9 +72,9 @@ export class Tunnel {
   readonly dns: DnsManager
   readonly routes: RouteManager
 
-  private readonly api: ApiClient
+  private readonly api: IApiClient
   private readonly binaryPath?: string
-  private readonly binaryResolver: BinaryResolver
+  private readonly binaryResolver?: BinaryResolver
   private readonly processFactory: ProcessFactory
   private token: string | null = null
   private lastProcess: TunnelProcess | null = null
@@ -60,7 +82,7 @@ export class Tunnel {
   constructor(data: CfTunnel, deps: TunnelDeps) {
     this.api = deps.api
     this.binaryPath = deps.binaryPath
-    this.binaryResolver = deps.binaryResolver ?? cloudflared
+    this.binaryResolver = deps.binaryResolver
     this.processFactory = deps.processFactory ?? { start: TunnelProcess.start }
     this.ingress = new IngressManager(deps.api, data.id)
     this.dns = new DnsManager(deps.api, data.id)
@@ -102,13 +124,17 @@ export class Tunnel {
 
   async run(options?: RunOptions): Promise<TunnelProcess> {
     const token = await this.getToken()
-    const binaryPath = this.binaryPath ?? this.binaryResolver.path
 
-    if (!this.binaryPath && !(await this.binaryResolver.isInstalled())) {
-      await this.binaryResolver.install()
+    let resolvedPath = this.binaryPath
+    if (!resolvedPath) {
+      const resolver = this.binaryResolver ?? (await import("./bin/cloudflared.js")).cloudflared
+      resolvedPath = resolver.path
+      if (!(await resolver.isInstalled())) {
+        await resolver.install()
+      }
     }
 
-    const process = this.processFactory.start(binaryPath, token, options)
+    const process = this.processFactory.start(resolvedPath, token, options)
     this.lastProcess = process
     return process
   }

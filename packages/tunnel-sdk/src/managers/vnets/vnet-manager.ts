@@ -1,9 +1,20 @@
-import type { ApiClient } from "../api/client.js"
-import type { CfVirtualNetwork } from "../api/types.js"
-import type { VNet, VNetCreateOptions } from "../types.js"
+import type { IApiClient } from "../../api/interfaces.js"
+import type { CfVirtualNetwork } from "../../api/types.js"
+
+export interface VNet {
+  id: string
+  name: string
+  isDefault: boolean
+  comment?: string
+}
+
+export interface VNetCreateOptions {
+  default?: boolean
+  comment?: string
+}
 
 export class VNetManager {
-  constructor(private readonly api: ApiClient) {}
+  constructor(private readonly api: IApiClient) {}
 
   async create(name: string, options?: VNetCreateOptions): Promise<VNet> {
     const body: Record<string, unknown> = { name }

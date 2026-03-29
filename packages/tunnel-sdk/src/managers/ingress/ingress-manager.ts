@@ -1,10 +1,32 @@
-import type { ApiClient } from "../api/client.js"
-import type { CfIngressRule, CfTunnelConfig } from "../api/types.js"
-import type { IngressRule, OriginRequestConfig } from "../types.js"
+import type { IApiClient } from "../../api/interfaces.js"
+import type { CfIngressRule, CfTunnelConfig } from "../../api/types.js"
+
+export interface OriginRequestConfig {
+  connectTimeout?: string
+  tlsTimeout?: string
+  tcpKeepAlive?: string
+  noHappyEyeballs?: boolean
+  keepAliveConnections?: number
+  keepAliveTimeout?: string
+  httpHostHeader?: string
+  originServerName?: string
+  noTLSVerify?: boolean
+  disableChunkedEncoding?: boolean
+  proxyAddress?: string
+  proxyPort?: number
+  proxyType?: string
+}
+
+export interface IngressRule {
+  hostname?: string
+  service: string
+  path?: string
+  originRequest?: OriginRequestConfig
+}
 
 export class IngressManager {
   constructor(
-    private readonly api: ApiClient,
+    private readonly api: IApiClient,
     private readonly tunnelId: string,
   ) {}
 

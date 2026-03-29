@@ -1,12 +1,22 @@
-import type { ApiClient } from "../api/client.js"
-import type { CfDnsRecord, CfZone } from "../api/types.js"
-import type { DnsEnsureOptions, DnsRecord } from "../types.js"
+import type { IApiClient } from "../../api/interfaces.js"
+import type { CfDnsRecord, CfZone } from "../../api/types.js"
+
+export interface DnsEnsureOptions {
+  proxied?: boolean
+  ttl?: number
+}
+
+export interface DnsRecord {
+  hostname: string
+  type: string
+  content: string
+}
 
 export class DnsManager {
   private readonly zoneIdCache = new Map<string, string>()
 
   constructor(
-    private readonly api: ApiClient,
+    private readonly api: IApiClient,
     private readonly tunnelId: string,
   ) {}
 

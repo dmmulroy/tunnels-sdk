@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
+import { createMockApi, type MockApiClient } from "./test-utils.js"
 import { Tunnel } from "./tunnel.js"
-import type { BinaryResolver } from "./types.js"
+import type { BinaryResolver } from "./tunnel.js"
 
 const baseTunnel = {
   id: "tunnel-123",
@@ -10,17 +11,6 @@ const baseTunnel = {
   deleted_at: null,
   remote_config: true,
   connections: [],
-}
-
-function createApi() {
-  return {
-    get: vi.fn(),
-    delete: vi.fn(),
-    accountPath: vi.fn((path: string) => `/accounts/acct${path}`),
-    zonePath: vi.fn(),
-    put: vi.fn(),
-    post: vi.fn(),
-  }
 }
 
 function createBinaryResolver(overrides?: Partial<BinaryResolver>): BinaryResolver {
@@ -39,12 +29,12 @@ function createProcessFactory() {
 }
 
 describe("Tunnel", () => {
-  let api: ReturnType<typeof createApi>
+  let api: MockApiClient
   let binaryResolver: ReturnType<typeof createBinaryResolver>
   let processFactory: ReturnType<typeof createProcessFactory>
 
   beforeEach(() => {
-    api = createApi()
+    api = createMockApi()
     binaryResolver = createBinaryResolver()
     processFactory = createProcessFactory()
   })
@@ -52,7 +42,7 @@ describe("Tunnel", () => {
   it("caches tokens", async () => {
     api.get.mockResolvedValueOnce("token-123")
     const tunnel = new Tunnel(baseTunnel, {
-      api: api as any,
+      api: api,
       binaryResolver,
       processFactory,
     })
@@ -77,7 +67,7 @@ describe("Tunnel", () => {
       }],
     })
 
-    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
+    const tunnel = new Tunnel(baseTunnel, { api: api, binaryResolver, processFactory })
     await tunnel.refresh()
 
     expect(tunnel.name).toBe("updated-name")
@@ -86,7 +76,7 @@ describe("Tunnel", () => {
   })
 
   it("deletes DNS records before deleting the tunnel", async () => {
-    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
+    const tunnel = new Tunnel(baseTunnel, { api: api, binaryResolver, processFactory })
     const order: string[] = []
 
     vi.spyOn(tunnel.dns, "list").mockImplementation(async () => {
@@ -112,7 +102,7 @@ describe("Tunnel", () => {
   it("uses a custom binary path without checking managed install state", async () => {
     api.get.mockResolvedValueOnce("token-123")
     const tunnel = new Tunnel(baseTunnel, {
-      api: api as any,
+      api: api,
       binaryPath: "/custom/cloudflared",
       binaryResolver,
       processFactory,
@@ -131,7 +121,7 @@ describe("Tunnel", () => {
       isInstalled: vi.fn().mockResolvedValue(false),
     })
 
-    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
+    const tunnel = new Tunnel(baseTunnel, { api: api, binaryResolver, processFactory })
     await tunnel.run({ logLevel: "info" })
 
     expect(binaryResolver.install).toHaveBeenCalled()
@@ -143,19 +133,19 @@ describe("Tunnel", () => {
   })
 
   it("maps unknown API status values to 'inactive'", () => {
-    const tunnel = new Tunnel({ ...baseTunnel, status: "pending" }, { api: api as any, binaryResolver, processFactory })
+    const tunnel = new Tunnel({ ...baseTunnel, status: "pending" }, { api: api, binaryResolver, processFactory })
     expect(tunnel.status).toBe("inactive")
   })
 
   it("maps known API status values correctly", () => {
     for (const status of ["healthy", "inactive", "degraded", "down"] as const) {
-      const tunnel = new Tunnel({ ...baseTunnel, status }, { api: api as any, binaryResolver, processFactory })
+      const tunnel = new Tunnel({ ...baseTunnel, status }, { api: api, binaryResolver, processFactory })
       expect(tunnel.status).toBe(status)
     }
   })
 
   it("logs() throws when no process is running", () => {
-    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
+    const tunnel = new Tunnel(baseTunnel, { api: api, binaryResolver, processFactory })
     expect(() => tunnel.logs()).toThrow("No running tunnel process")
   })
 
@@ -165,7 +155,7 @@ describe("Tunnel", () => {
     processFactory.start.mockReturnValueOnce({ kind: "process", stderr: mockStderr } as any)
 
     api.get.mockResolvedValueOnce("token-123")
-    const tunnel = new Tunnel(baseTunnel, { api: api as any, binaryResolver, processFactory })
+    const tunnel = new Tunnel(baseTunnel, { api: api, binaryResolver, processFactory })
     await tunnel.run()
 
     const stream = tunnel.logs()

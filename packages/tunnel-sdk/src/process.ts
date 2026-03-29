@@ -1,16 +1,59 @@
-import { spawn as nodeSpawn, type ChildProcess } from "node:child_process"
+import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from "node:child_process"
 import { EventEmitter } from "node:events"
 import { createInterface } from "node:readline"
-import type {
-  ConnectorInfo,
-  ProcessSpawner,
-  ReconnectAttempt,
-  RunOptions,
-  TunnelError,
-  TunnelMetrics,
-  TunnelProcessEvents,
-  TunnelStatus,
-} from "./types.js"
+import type { TunnelStatus } from "./tunnel.js"
+
+export interface ProcessSpawner {
+  spawn(command: string, args: string[], options: SpawnOptions): ChildProcess
+}
+
+export interface RunOptions {
+  metrics?: string
+  logLevel?: "debug" | "info" | "warn" | "error"
+  gracePeriod?: string
+  retries?: number
+  signal?: AbortSignal
+  spawner?: ProcessSpawner
+}
+
+export interface ConnectorInfo {
+  id: string
+  colo: string
+  ip: string
+  location: string
+}
+
+export interface ReconnectAttempt {
+  number: number
+  delay: number
+  connector: ConnectorInfo
+}
+
+export interface TunnelError {
+  code: string
+  message: string
+  retryable: boolean
+  connector?: ConnectorInfo
+}
+
+export interface TunnelMetrics {
+  rps: number
+  p50Ms: number
+  p99Ms: number
+  activeConns: number
+  bytesIn: number
+  bytesOut: number
+}
+
+export interface TunnelProcessEvents {
+  connected: (connector: ConnectorInfo) => void
+  disconnected: (connector: ConnectorInfo) => void
+  reconnecting: (attempt: ReconnectAttempt) => void
+  error: (error: TunnelError) => void
+  metrics: (metrics: TunnelMetrics) => void
+  status: (status: TunnelStatus) => void
+  exit: (code: number) => void
+}
 
 const defaultSpawner: ProcessSpawner = { spawn: nodeSpawn }
 

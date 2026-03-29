@@ -1,34 +1,21 @@
 export { TunnelClient } from "./client.js"
+export type { TunnelClientDeps, TunnelClientOptions } from "./client.js"
 export { TunnelConfig } from "./config/schema.js"
 export { Tunnel } from "./tunnel.js"
-export type { TunnelDeps, ProcessFactory } from "./tunnel.js"
+export type { TunnelDeps, ProcessFactory, TunnelStatus, TunnelConnection, DeleteOptions, BinaryResolver } from "./tunnel.js"
+export { TunnelOperations } from "./tunnel-operations.js"
+export type { CreateTunnelOptions, TunnelListOptions } from "./tunnel-operations.js"
 export { TunnelProcess } from "./process.js"
+export type { ProcessSpawner, RunOptions, ConnectorInfo, ReconnectAttempt, TunnelError, TunnelMetrics, TunnelProcessEvents } from "./process.js"
 export { LogStream } from "./logs.js"
+export type { LogEntry } from "./logs.js"
 export { expose } from "./expose.js"
+export type { ExposeOptions } from "./expose.js"
+export type { IApiClient } from "./api/interfaces.js"
+export { createDefaultTunnelDeps } from "./defaults.js"
 
-export type {
-  TunnelStatus,
-  TunnelConnection,
-  IngressRule,
-  OriginRequestConfig,
-  TunnelClientOptions,
-  RunOptions,
-  DeleteOptions,
-  ExposeOptions,
-  ProcessSpawner,
-  BinaryResolver,
-  TunnelListOptions,
-  ConnectorInfo,
-  ReconnectAttempt,
-  TunnelError,
-  TunnelMetrics,
-  TunnelProcessEvents,
-  LogEntry,
-  DnsEnsureOptions,
-  DnsRecord,
-  RouteAddOptions,
-  Route,
-  RouteCheckResult,
-  VNet,
-  VNetCreateOptions,
-} from "./types.js"
+// Manager types
+export type { DnsEnsureOptions, DnsRecord } from "./managers/dns/index.js"
+export type { IngressRule, OriginRequestConfig } from "./managers/ingress/index.js"
+export type { Route, RouteAddOptions, RouteCheckResult } from "./managers/routes/index.js"
+export type { VNet, VNetCreateOptions } from "./managers/vnets/index.js"

@@ -1,11 +1,29 @@
-import type { ApiClient } from "../api/client.js"
-import type { CfRoute } from "../api/types.js"
-import { TunnelApiError } from "../errors.js"
-import type { Route, RouteAddOptions, RouteCheckResult } from "../types.js"
+import type { IApiClient } from "../../api/interfaces.js"
+import type { CfRoute } from "../../api/types.js"
+import { TunnelApiError } from "../../errors.js"
+
+export interface RouteAddOptions {
+  vnet?: string
+  comment?: string
+}
+
+export interface Route {
+  network: string
+  tunnelId: string
+  tunnelName?: string
+  vnet: string
+  comment?: string
+}
+
+export interface RouteCheckResult {
+  tunnel: string
+  route: string
+  vnet: string
+}
 
 export class RouteManager {
   constructor(
-    private readonly api: ApiClient,
+    private readonly api: IApiClient,
     private readonly tunnelId: string,
   ) {}
 

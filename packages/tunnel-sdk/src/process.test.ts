@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events"
 import { Readable } from "node:stream"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { TunnelProcess } from "./process.js"
-import type { ProcessSpawner } from "./types.js"
+import type { ProcessSpawner } from "./process.js"
 
 function createMockProcess() {
   const stderr = new Readable({ read() {} })

@@ -1,6 +1,14 @@
 import { createInterface } from "node:readline"
 import type { Readable } from "node:stream"
-import type { LogEntry } from "./types.js"
+
+export interface LogEntry {
+  timestamp: Date
+  level: "info" | "warn" | "error" | "debug"
+  event: string
+  message: string
+  connectorId?: string
+  [key: string]: unknown
+}
 
 interface LogStreamOptions {
   level?: "info" | "warn" | "error" | "debug"
