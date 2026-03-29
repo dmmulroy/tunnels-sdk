@@ -1,21 +1,8 @@
 import { EventEmitter } from "node:events"
 import { Readable } from "node:stream"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { spawn } from "node:child_process"
-import { cloudflared } from "./bin/cloudflared.js"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { expose } from "./expose.js"
-
-vi.mock("node:child_process", () => ({
-  spawn: vi.fn(),
-}))
-
-vi.mock("./bin/cloudflared.js", () => ({
-  cloudflared: {
-    path: "/mock/cloudflared",
-    isInstalled: vi.fn().mockResolvedValue(true),
-    install: vi.fn().mockResolvedValue(undefined),
-  },
-}))
+import type { BinaryResolver, ProcessSpawner } from "./types.js"
 
 function createMockProcess() {
   const stderr = new Readable({ read() {} })
@@ -31,18 +18,21 @@ function createMockProcess() {
 
 describe("expose", () => {
   let mockProc: ReturnType<typeof createMockProcess>
+  let spawner: ProcessSpawner
+  let binaryResolver: BinaryResolver
 
   beforeEach(() => {
     mockProc = createMockProcess()
-    vi.mocked(spawn).mockReturnValue(mockProc)
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
+    spawner = { spawn: vi.fn().mockReturnValue(mockProc) }
+    binaryResolver = {
+      path: "/mock/cloudflared",
+      isInstalled: vi.fn().mockResolvedValue(true),
+      install: vi.fn().mockResolvedValue(undefined),
+    }
   })
 
   it("exposes a port and returns the tunnel URL", async () => {
-    const tunnelPromise = expose(3000)
+    const tunnelPromise = expose(3000, { spawner, binaryResolver })
 
     setTimeout(() => {
       mockProc.stderr.push("INF |  https://test-tunnel-abc123.trycloudflare.com\n")
@@ -51,7 +41,7 @@ describe("expose", () => {
     const tunnel = await tunnelPromise
 
     expect(tunnel.url).toBe("https://test-tunnel-abc123.trycloudflare.com")
-    expect(spawn).toHaveBeenCalledWith(
+    expect(spawner.spawn).toHaveBeenCalledWith(
       "/mock/cloudflared",
       ["tunnel", "--url", "http://localhost:3000"],
       expect.any(Object),
@@ -59,7 +49,11 @@ describe("expose", () => {
   })
 
   it("respects a custom binary path without attempting install", async () => {
-    const tunnelPromise = expose(3000, { binaryPath: "/custom/cloudflared" })
+    const tunnelPromise = expose(3000, {
+      binaryPath: "/custom/cloudflared",
+      spawner,
+      binaryResolver,
+    })
 
     setTimeout(() => {
       mockProc.stderr.push("INF |  https://custom-bin.trycloudflare.com\n")
@@ -67,17 +61,17 @@ describe("expose", () => {
 
     await tunnelPromise
 
-    expect(spawn).toHaveBeenCalledWith(
+    expect(spawner.spawn).toHaveBeenCalledWith(
       "/custom/cloudflared",
       ["tunnel", "--url", "http://localhost:3000"],
       expect.any(Object),
     )
-    expect(cloudflared.isInstalled).not.toHaveBeenCalled()
-    expect(cloudflared.install).not.toHaveBeenCalled()
+    expect(binaryResolver.isInstalled).not.toHaveBeenCalled()
+    expect(binaryResolver.install).not.toHaveBeenCalled()
   })
 
   it("close() kills the process", async () => {
-    const tunnelPromise = expose(8080)
+    const tunnelPromise = expose(8080, { spawner, binaryResolver })
 
     setTimeout(() => {
       mockProc.stderr.push("INF |  https://xyz789.trycloudflare.com\n")
@@ -95,7 +89,7 @@ describe("expose", () => {
   })
 
   it("rejects if process exits before providing URL", async () => {
-    const tunnelPromise = expose(3000)
+    const tunnelPromise = expose(3000, { spawner, binaryResolver })
 
     setTimeout(() => {
       mockProc.emit("exit", 1)
@@ -105,7 +99,7 @@ describe("expose", () => {
   })
 
   it("rejects if process errors", async () => {
-    const tunnelPromise = expose(3000)
+    const tunnelPromise = expose(3000, { spawner, binaryResolver })
 
     setTimeout(() => {
       mockProc.emit("error", new Error("ENOENT"))
@@ -115,9 +109,9 @@ describe("expose", () => {
   })
 
   it("installs binary if not already installed", async () => {
-    vi.mocked(cloudflared.isInstalled).mockResolvedValueOnce(false)
+    binaryResolver.isInstalled = vi.fn().mockResolvedValue(false)
 
-    const tunnelPromise = expose(3000)
+    const tunnelPromise = expose(3000, { spawner, binaryResolver })
 
     setTimeout(() => {
       mockProc.stderr.push("INF |  https://auto-install.trycloudflare.com\n")
@@ -125,11 +119,11 @@ describe("expose", () => {
 
     await tunnelPromise
 
-    expect(cloudflared.install).toHaveBeenCalled()
+    expect(binaryResolver.install).toHaveBeenCalled()
   })
 
   it("supports Symbol.asyncDispose", async () => {
-    const tunnelPromise = expose(3000)
+    const tunnelPromise = expose(3000, { spawner, binaryResolver })
 
     setTimeout(() => {
       mockProc.stderr.push("INF |  https://disposable.trycloudflare.com\n")

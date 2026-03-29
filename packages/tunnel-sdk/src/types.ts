@@ -69,6 +69,8 @@ export interface DeleteOptions {
 
 export interface ExposeOptions {
   binaryPath?: string
+  binaryResolver?: BinaryResolver
+  spawner?: ProcessSpawner
 }
 
 export interface ConnectorInfo {

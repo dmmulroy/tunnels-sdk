@@ -1,7 +1,9 @@
-import { spawn, type ChildProcess } from "node:child_process"
+import { spawn as nodeSpawn, type ChildProcess } from "node:child_process"
 import { createInterface } from "node:readline"
 import { cloudflared } from "./bin/cloudflared.js"
-import type { ExposeOptions } from "./types.js"
+import type { BinaryResolver, ExposeOptions, ProcessSpawner } from "./types.js"
+
+const defaultSpawner: ProcessSpawner = { spawn: nodeSpawn }
 
 export interface QuickTunnel {
   readonly url: string
@@ -10,13 +12,15 @@ export interface QuickTunnel {
 }
 
 export async function expose(port: number, options?: ExposeOptions): Promise<QuickTunnel> {
-  const binaryPath = options?.binaryPath ?? cloudflared.path
+  const resolver: BinaryResolver = options?.binaryResolver ?? cloudflared
+  const spawner: ProcessSpawner = options?.spawner ?? defaultSpawner
+  const binaryPath = options?.binaryPath ?? resolver.path
 
-  if (!options?.binaryPath && !(await cloudflared.isInstalled())) {
-    await cloudflared.install()
+  if (!options?.binaryPath && !(await resolver.isInstalled())) {
+    await resolver.install()
   }
 
-  const proc = spawn(binaryPath, ["tunnel", "--url", `http://localhost:${port}`], {
+  const proc = spawner.spawn(binaryPath, ["tunnel", "--url", `http://localhost:${port}`], {
     stdio: ["ignore", "pipe", "pipe"],
   })
 
