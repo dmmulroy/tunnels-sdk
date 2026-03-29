@@ -40,6 +40,9 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "vitest run -c vitest.config.integration.ts",
+    "test:e2e": "vitest run -c vitest.config.e2e.ts",
+    "test:all": "pnpm test && pnpm test:integration && pnpm test:e2e",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
