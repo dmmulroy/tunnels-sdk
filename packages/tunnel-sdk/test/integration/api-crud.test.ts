@@ -66,14 +66,12 @@ describeAuth("Tunnel CRUD (real API)", () => {
     ).rejects.toThrow()
   })
 
-  it("delete with force on already-deleted tunnel is safe", async () => {
+  it("delete with force on already-deleted tunnel doesn't throw", async () => {
     const name = ctx.name("dbldelete")
     const tunnel = await ctx.client.tunnels.create(name)
     await ctx.client.tunnels.delete(tunnel.id, { force: true })
 
-    // Second delete should fail gracefully (API returns 404)
-    await expect(
-      ctx.client.tunnels.delete(tunnel.id, { force: true }),
-    ).rejects.toThrow()
+    // CF API accepts force-delete on already-deleted tunnels — verify it doesn't throw
+    await ctx.client.tunnels.delete(tunnel.id, { force: true })
   })
 })

@@ -20,21 +20,38 @@ export async function setup() {
     return
   }
 
-  // Verify the token works
+  // Verify the token works (try account-scoped first, then user-scoped)
   try {
-    const res = await fetch("https://api.cloudflare.com/client/v4/user/tokens/verify", {
-      headers: { Authorization: `Bearer ${apiToken}` },
-    })
-    const body = await res.json() as { success: boolean; errors?: Array<{ message: string }> }
-    if (!body.success) {
-      console.error(
-        "\n❌ API token verification failed:",
-        body.errors?.map((e) => e.message).join(", "),
-        "\n",
+    let verified = false
+
+    // Account API tokens (cfat_*) use the account endpoint
+    const accountRes = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/tokens/verify`,
+      { headers: { Authorization: `Bearer ${apiToken}` } },
+    )
+    const accountBody = await accountRes.json() as { success: boolean }
+    if (accountBody.success) {
+      verified = true
+    } else {
+      // Fall back to user token endpoint
+      const userRes = await fetch(
+        "https://api.cloudflare.com/client/v4/user/tokens/verify",
+        { headers: { Authorization: `Bearer ${apiToken}` } },
       )
-      process.exit(1)
+      const userBody = await userRes.json() as { success: boolean; errors?: Array<{ message: string }> }
+      if (userBody.success) {
+        verified = true
+      } else {
+        console.error(
+          "\n❌ API token verification failed:",
+          userBody.errors?.map((e) => e.message).join(", "),
+          "\n",
+        )
+        process.exit(1)
+      }
     }
-    console.log("✓ API token verified")
+
+    if (verified) console.log("✓ API token verified")
   } catch (err) {
     console.error("\n❌ Could not reach Cloudflare API:", err, "\n")
     process.exit(1)
