@@ -5,7 +5,7 @@ import { Command } from "effect/unstable/cli"
 import { cft } from "../src/main.js"
 import { CftError, toExitCode } from "../src/errors.js"
 import { OutputContext, type OutputFormat } from "../src/output.js"
-import { LiveLayer } from "../src/live-layer.js"
+import { LiveLayerFromEnv } from "../src/live-layer.js"
 
 // Parse global flags from argv for OutputContext
 const argv = process.argv.slice(2)
@@ -23,7 +23,7 @@ const outputCtx: OutputContext = {
 
 const program = Command.run(cft, { version: "0.1.0" }).pipe(
   Effect.provideService(OutputContext, outputCtx),
-  Effect.provide(Layer.mergeAll(LiveLayer, NodeServices.layer)),
+  Effect.provide(Layer.mergeAll(LiveLayerFromEnv(), NodeServices.layer)),
   Effect.catch((error) => {
     if (typeof error === "object" && error !== null && "_tag" in error) {
       const tag = (error as { _tag: string })._tag

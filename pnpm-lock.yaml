@@ -16,6 +16,9 @@ importers:
       effect:
         specifier: 4.0.0-beta.42
         version: 4.0.0-beta.42
+      tunnel-sdk:
+        specifier: workspace:*
+        version: link:../tunnel-sdk
     devDependencies:
       '@effect/vitest':
         specifier: 4.0.0-beta.42
