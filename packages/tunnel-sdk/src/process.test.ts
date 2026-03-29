@@ -1,10 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { EventEmitter, Readable } from "node:stream"
-import { TunnelProcess } from "./process.js"
+import { EventEmitter } from "node:events"
+import { Readable } from "node:stream"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { spawn } from "node:child_process"
-
-// We test the log parsing logic by creating a mock process
-// TunnelProcess.start() calls spawn() — we mock that
+import { TunnelProcess } from "./process.js"
 
 vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
@@ -52,15 +50,37 @@ describe("TunnelProcess", () => {
       })
     })
 
-    // Simulate cloudflared JSON log output
     mockProc.stderr.push(
-      JSON.stringify({
+      `${JSON.stringify({
         level: "info",
         event: "registered",
         connIndex: 0,
         location: "bos01",
         ip: "198.41.192.7",
-      }) + "\n",
+      })}\n`,
+    )
+
+    await connected
+  })
+
+  it("also recognizes connection events from message text", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+
+    const connected = new Promise<void>((resolve) => {
+      tp.on("connected", (conn) => {
+        expect(conn.id).toBe("1")
+        resolve()
+      })
+    })
+
+    mockProc.stderr.push(
+      `${JSON.stringify({
+        level: "info",
+        message: "Registered tunnel connection",
+        connIndex: 1,
+        location: "iad01",
+        ip: "198.41.192.8",
+      })}\n`,
     )
 
     await connected
@@ -70,22 +90,21 @@ describe("TunnelProcess", () => {
     const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
 
     const statuses: string[] = []
-    tp.on("status", (s) => statuses.push(s))
+    tp.on("status", (status) => statuses.push(status))
 
     for (let i = 0; i < 4; i++) {
       mockProc.stderr.push(
-        JSON.stringify({
+        `${JSON.stringify({
           level: "info",
           event: "registered",
           connIndex: i,
           location: `colo${i}`,
           ip: `1.2.3.${i}`,
-        }) + "\n",
+        })}\n`,
       )
     }
 
-    // Give time for events to process
-    await new Promise((r) => setTimeout(r, 50))
+    await new Promise((resolve) => setTimeout(resolve, 25))
 
     expect(statuses).toContain("degraded")
     expect(statuses).toContain("healthy")
@@ -93,24 +112,50 @@ describe("TunnelProcess", () => {
     expect(tp.connectors).toHaveLength(4)
   })
 
-  it("emits error events from error-level logs", async () => {
+  it("emits metrics events", async () => {
     const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
 
-    const errorEvent = new Promise<void>((resolve) => {
-      tp.on("error", (err) => {
-        expect(err.message).toContain("connection refused")
-        expect(err.retryable).toBe(true)
+    const metrics = new Promise<void>((resolve) => {
+      tp.on("metrics", (value) => {
+        expect(value.rps).toBe(12)
+        expect(value.activeConns).toBe(4)
         resolve()
       })
     })
 
     mockProc.stderr.push(
-      JSON.stringify({
+      `${JSON.stringify({
+        level: "info",
+        rps: 12,
+        p50Ms: 10,
+        p99Ms: 25,
+        activeConns: 4,
+        bytesIn: 100,
+        bytesOut: 200,
+      })}\n`,
+    )
+
+    await metrics
+  })
+
+  it("emits error events from error-level logs", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+
+    const errorEvent = new Promise<void>((resolve) => {
+      tp.on("error", (error) => {
+        expect(error.message).toContain("connection refused")
+        expect(error.retryable).toBe(true)
+        resolve()
+      })
+    })
+
+    mockProc.stderr.push(
+      `${JSON.stringify({
         level: "error",
         event: "error",
         error: "connection refused",
         message: "connection refused",
-      }) + "\n",
+      })}\n`,
     )
 
     await errorEvent
@@ -132,7 +177,6 @@ describe("TunnelProcess", () => {
   it("close() sends SIGTERM", async () => {
     const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
 
-    // Simulate the process exiting after SIGTERM
     mockProc.kill.mockImplementation(() => {
       setTimeout(() => mockProc.emit("exit", 0), 10)
     })
@@ -144,20 +188,17 @@ describe("TunnelProcess", () => {
 
   it("waitUntilHealthy resolves when 4 connections are made", async () => {
     const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
-
-    // Start waiting
     const healthy = tp.waitUntilHealthy(5000)
 
-    // Simulate 4 connections
     for (let i = 0; i < 4; i++) {
       mockProc.stderr.push(
-        JSON.stringify({
+        `${JSON.stringify({
           level: "info",
           event: "registered",
           connIndex: i,
           location: `colo${i}`,
           ip: `1.2.3.${i}`,
-        }) + "\n",
+        })}\n`,
       )
     }
 
@@ -191,5 +232,195 @@ describe("TunnelProcess", () => {
       ],
       expect.any(Object),
     )
+  })
+
+  it("does NOT emit connected for 'unregistered' events (overlap bug regression)", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+
+    // First, register a connector so disconnect has something to remove
+    mockProc.stderr.push(
+      `${JSON.stringify({
+        level: "info",
+        event: "registered",
+        connIndex: 0,
+        location: "bos01",
+        ip: "198.41.192.7",
+      })}\n`,
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(tp.connectors).toHaveLength(1)
+
+    const events: string[] = []
+    tp.on("connected", () => events.push("connected"))
+    tp.on("disconnected", () => events.push("disconnected"))
+
+    // Now send an unregistered event — should ONLY fire disconnected, not connected
+    mockProc.stderr.push(
+      `${JSON.stringify({
+        level: "info",
+        event: "unregistered",
+        connIndex: 0,
+        location: "bos01",
+        ip: "198.41.192.7",
+      })}\n`,
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(events).toEqual(["disconnected"])
+    expect(tp.connectors).toHaveLength(0)
+  })
+
+  it("does NOT emit connected for 'connectionUnregistered' events", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+
+    mockProc.stderr.push(
+      `${JSON.stringify({
+        level: "info",
+        event: "registered",
+        connIndex: 1,
+        location: "iad01",
+        ip: "198.41.192.8",
+      })}\n`,
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    const events: string[] = []
+    tp.on("connected", () => events.push("connected"))
+    tp.on("disconnected", () => events.push("disconnected"))
+
+    mockProc.stderr.push(
+      `${JSON.stringify({
+        level: "info",
+        event: "connectionUnregistered",
+        connIndex: 1,
+        location: "iad01",
+        ip: "198.41.192.8",
+      })}\n`,
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(events).toEqual(["disconnected"])
+  })
+
+  it("does not emit error for lines containing 'err' as substring (e.g. stderr)", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+
+    const errors: string[] = []
+    tp.on("error", (e) => errors.push(e.message))
+
+    // These should NOT trigger error events — 'err' is just a substring
+    mockProc.stderr.push("Starting stderr redirect\n")
+    mockProc.stderr.push("Connecting to preferred endpoint\n")
+    // This SHOULD trigger an error event — 'ERR' as a word boundary
+    mockProc.stderr.push("ERR failed to connect\n")
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain("ERR failed to connect")
+  })
+
+  it("waitUntilHealthy rejects on timeout", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+
+    // Only register 1 connector (need 4 for healthy)
+    mockProc.stderr.push(
+      `${JSON.stringify({
+        level: "info",
+        event: "registered",
+        connIndex: 0,
+        location: "bos01",
+        ip: "198.41.192.7",
+      })}\n`,
+    )
+
+    await expect(tp.waitUntilHealthy(50)).rejects.toThrow("Timed out")
+  })
+
+  it("waitUntilHealthy rejects if process exits before healthy", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+    const healthy = tp.waitUntilHealthy(5000)
+
+    mockProc.emit("exit", 1)
+
+    await expect(healthy).rejects.toThrow("exited with code 1")
+  })
+
+  it("waitUntilHealthy resolves immediately if already healthy", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+
+    for (let i = 0; i < 4; i++) {
+      mockProc.stderr.push(
+        `${JSON.stringify({
+          level: "info",
+          event: "registered",
+          connIndex: i,
+          location: `colo${i}`,
+          ip: `1.2.3.${i}`,
+        })}\n`,
+      )
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(tp.status).toBe("healthy")
+
+    // Should resolve immediately
+    await expect(tp.waitUntilHealthy()).resolves.toBeUndefined()
+  })
+
+  it("close() is idempotent", async () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+
+    mockProc.kill.mockImplementation(() => {
+      setTimeout(() => mockProc.emit("exit", 0), 5)
+    })
+
+    await tp.close()
+    await tp.close() // second call should be a no-op
+
+    expect(mockProc.kill).toHaveBeenCalledTimes(1)
+  })
+
+  it("respects AbortSignal", async () => {
+    const controller = new AbortController()
+
+    mockProc.kill.mockImplementation(() => {
+      setTimeout(() => mockProc.emit("exit", 0), 5)
+    })
+
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token", {
+      signal: controller.signal,
+    })
+
+    controller.abort()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(mockProc.kill).toHaveBeenCalledWith("SIGTERM")
+  })
+
+  it("respects already-aborted signal", async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    mockProc.kill.mockImplementation(() => {
+      setTimeout(() => mockProc.emit("exit", 0), 5)
+    })
+
+    TunnelProcess.start("/usr/bin/cloudflared", "test-token", {
+      signal: controller.signal,
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(mockProc.kill).toHaveBeenCalledWith("SIGTERM")
+  })
+
+  it("exposes stderr via getter", () => {
+    const tp = TunnelProcess.start("/usr/bin/cloudflared", "test-token")
+    expect(tp.stderr).toBe(mockProc.stderr)
   })
 })

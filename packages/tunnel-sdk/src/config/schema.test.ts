@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, it, expect } from "vitest"
 import { TunnelConfig } from "./schema.js"
 
@@ -227,6 +230,30 @@ describe("TunnelConfig", () => {
       if (!result.success) {
         expect(result.error.issues.length).toBeGreaterThan(0)
       }
+    })
+  })
+
+  describe("yaml helpers", () => {
+    it("parses yaml strings", () => {
+      const config = TunnelConfig.fromYaml(`
+ingress:
+  - hostname: app.example.com
+    service: http://localhost:3000
+`)
+
+      expect(config.ingress).toHaveLength(2)
+      expect(config.ingress[0].hostname).toBe("app.example.com")
+      expect(config.ingress[1].service).toBe("http_status:404")
+    })
+
+    it("loads yaml files", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "tunnel-sdk-"))
+      const path = join(dir, "config.yaml")
+      await writeFile(path, "ingress:\n  - service: http_status:404\n")
+
+      const config = await TunnelConfig.fromFile(path)
+      expect(config.ingress).toHaveLength(1)
+      expect(config.ingress[0].service).toBe("http_status:404")
     })
   })
 })

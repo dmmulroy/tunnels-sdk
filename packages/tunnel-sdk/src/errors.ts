@@ -1,4 +1,3 @@
-/** Base error for all tunnel-sdk errors */
 export class TunnelSdkError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
@@ -6,7 +5,6 @@ export class TunnelSdkError extends Error {
   }
 }
 
-/** Cloudflare API returned an error response */
 export class TunnelApiError extends TunnelSdkError {
   readonly status: number
   readonly errors: Array<{ code: number; message: string }>
@@ -20,7 +18,6 @@ export class TunnelApiError extends TunnelSdkError {
   }
 }
 
-/** Authentication failed — bad token or missing credentials */
 export class TunnelAuthError extends TunnelSdkError {
   constructor(message = "Authentication failed. Check your API token and account ID.") {
     super(message)
@@ -28,7 +25,6 @@ export class TunnelAuthError extends TunnelSdkError {
   }
 }
 
-/** Tunnel not found by name or ID */
 export class TunnelNotFoundError extends TunnelSdkError {
   readonly tunnelRef: string
 

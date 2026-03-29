@@ -1,5 +1,3 @@
-// ── Core Types ──────────────────────────────────────────────────────────────
-
 export type TunnelStatus = "healthy" | "inactive" | "degraded" | "down"
 
 export interface TunnelConnection {
@@ -13,7 +11,6 @@ export interface TunnelConnection {
 }
 
 export interface IngressRule {
-  /** undefined = catch-all */
   hostname?: string
   service: string
   path?: string
@@ -36,55 +33,29 @@ export interface OriginRequestConfig {
   proxyType?: string
 }
 
-// ── Client Options ──────────────────────────────────────────────────────────
-
 export interface TunnelClientOptions {
   accountId: string
   apiToken: string
-  /** Override auto-managed binary path */
   binaryPath?: string
-  /** Override API base URL (testing) */
   baseUrl?: string
 }
 
-// ── Run Options ─────────────────────────────────────────────────────────────
-
 export interface RunOptions {
-  /** Metrics server address (e.g., "localhost:12345") */
   metrics?: string
-  /** Log level for cloudflared process */
   logLevel?: "debug" | "info" | "warn" | "error"
-  /** Grace period for shutdown (default: "30s") */
   gracePeriod?: string
-  /** Number of retries for connection (default: 5) */
   retries?: number
-  /** AbortSignal for cancellation */
   signal?: AbortSignal
 }
 
 export interface DeleteOptions {
-  /** Force delete even with active connections */
   force?: boolean
-  /** Remove associated DNS records */
   cleanupDns?: boolean
 }
 
-// ── Expose Options ──────────────────────────────────────────────────────────
-
 export interface ExposeOptions {
-  /** Custom hostname (requires auth) */
-  hostname?: string
-  /** Protocol: http, https, tcp, ssh, rdp */
-  protocol?: "http" | "https" | "tcp" | "ssh" | "rdp"
-  /** API token (required for custom hostname) */
-  apiToken?: string
-  /** Account ID (required for custom hostname) */
-  accountId?: string
-  /** Override binary path */
   binaryPath?: string
 }
-
-// ── Event Types ─────────────────────────────────────────────────────────────
 
 export interface ConnectorInfo {
   id: string
@@ -134,8 +105,6 @@ export interface TunnelProcessEvents {
   exit: (code: number) => void
 }
 
-// ── DNS Types ───────────────────────────────────────────────────────────────
-
 export interface DnsEnsureOptions {
   proxied?: boolean
   ttl?: number
@@ -146,8 +115,6 @@ export interface DnsRecord {
   type: string
   content: string
 }
-
-// ── Route Types ─────────────────────────────────────────────────────────────
 
 export interface RouteAddOptions {
   vnet?: string
@@ -168,8 +135,6 @@ export interface RouteCheckResult {
   vnet: string
 }
 
-// ── VNet Types ──────────────────────────────────────────────────────────────
-
 export interface VNet {
   id: string
   name: string
@@ -182,10 +147,10 @@ export interface VNetCreateOptions {
   comment?: string
 }
 
-// ── List Options ────────────────────────────────────────────────────────────
-
 export interface TunnelListOptions {
   status?: TunnelStatus
+  /** Exact tunnel name filter */
   name?: string
+  /** Alias for `name`. Filters by exact tunnel name (not fuzzy search). Cannot be combined with `name`. */
   search?: string
 }

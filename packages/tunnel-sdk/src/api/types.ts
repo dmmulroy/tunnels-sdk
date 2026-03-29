@@ -1,4 +1,3 @@
-/** Cloudflare API representation of a tunnel */
 export interface CfTunnel {
   id: string
   name: string

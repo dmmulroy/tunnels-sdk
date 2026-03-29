@@ -1,10 +1,3 @@
-/**
- * Private Network Access — Zero Trust routing.
- *
- * Demonstrates setting up a tunnel for private network access
- * with virtual networks and route management.
- */
-
 import { TunnelClient } from "tunnel-sdk"
 
 const client = new TunnelClient({

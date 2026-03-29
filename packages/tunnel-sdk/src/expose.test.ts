@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { EventEmitter, Readable } from "node:stream"
-import { expose } from "./expose.js"
+import { EventEmitter } from "node:events"
+import { Readable } from "node:stream"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { spawn } from "node:child_process"
 import { cloudflared } from "./bin/cloudflared.js"
+import { expose } from "./expose.js"
 
 vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
@@ -43,11 +44,8 @@ describe("expose", () => {
   it("exposes a port and returns the tunnel URL", async () => {
     const tunnelPromise = expose(3000)
 
-    // Simulate cloudflared outputting the URL
     setTimeout(() => {
-      mockProc.stderr.push(
-        "INF |  https://test-tunnel-abc123.trycloudflare.com\n",
-      )
+      mockProc.stderr.push("INF |  https://test-tunnel-abc123.trycloudflare.com\n")
     }, 10)
 
     const tunnel = await tunnelPromise
@@ -60,18 +58,33 @@ describe("expose", () => {
     )
   })
 
+  it("respects a custom binary path without attempting install", async () => {
+    const tunnelPromise = expose(3000, { binaryPath: "/custom/cloudflared" })
+
+    setTimeout(() => {
+      mockProc.stderr.push("INF |  https://custom-bin.trycloudflare.com\n")
+    }, 10)
+
+    await tunnelPromise
+
+    expect(spawn).toHaveBeenCalledWith(
+      "/custom/cloudflared",
+      ["tunnel", "--url", "http://localhost:3000"],
+      expect.any(Object),
+    )
+    expect(cloudflared.isInstalled).not.toHaveBeenCalled()
+    expect(cloudflared.install).not.toHaveBeenCalled()
+  })
+
   it("close() kills the process", async () => {
     const tunnelPromise = expose(8080)
 
     setTimeout(() => {
-      mockProc.stderr.push(
-        "INF |  https://xyz789.trycloudflare.com\n",
-      )
+      mockProc.stderr.push("INF |  https://xyz789.trycloudflare.com\n")
     }, 10)
 
     const tunnel = await tunnelPromise
 
-    // Mock the process exiting on SIGTERM
     mockProc.kill.mockImplementation(() => {
       setTimeout(() => mockProc.emit("exit", 0), 5)
     })
@@ -107,9 +120,7 @@ describe("expose", () => {
     const tunnelPromise = expose(3000)
 
     setTimeout(() => {
-      mockProc.stderr.push(
-        "INF |  https://auto-install.trycloudflare.com\n",
-      )
+      mockProc.stderr.push("INF |  https://auto-install.trycloudflare.com\n")
     }, 10)
 
     await tunnelPromise
@@ -121,9 +132,7 @@ describe("expose", () => {
     const tunnelPromise = expose(3000)
 
     setTimeout(() => {
-      mockProc.stderr.push(
-        "INF |  https://disposable.trycloudflare.com\n",
-      )
+      mockProc.stderr.push("INF |  https://disposable.trycloudflare.com\n")
     }, 10)
 
     const tunnel = await tunnelPromise

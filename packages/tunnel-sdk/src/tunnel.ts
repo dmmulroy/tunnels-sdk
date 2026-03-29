@@ -1,109 +1,128 @@
 import type { ApiClient } from "./api/client.js"
 import type { CfTunnel } from "./api/types.js"
-import type {
-  TunnelStatus,
-  TunnelConnection,
-  RunOptions,
-  DeleteOptions,
-} from "./types.js"
-import { IngressManager } from "./managers/ingress.js"
+import type { DeleteOptions, LogEntry, RunOptions, TunnelConnection, TunnelStatus } from "./types.js"
+import { cloudflared } from "./bin/cloudflared.js"
+import { LogStream } from "./logs.js"
 import { DnsManager } from "./managers/dns.js"
+import { IngressManager } from "./managers/ingress.js"
 import { RouteManager } from "./managers/routes.js"
 import { TunnelProcess } from "./process.js"
-import { cloudflared } from "./bin/cloudflared.js"
 
-/** Maps Cloudflare API tunnel to our Tunnel object */
-function mapConnection(conn: CfTunnel["connections"][number]): TunnelConnection {
+const VALID_STATUSES = new Set<TunnelStatus>(["healthy", "inactive", "degraded", "down"])
+
+function toTunnelStatus(raw: string): TunnelStatus {
+  return VALID_STATUSES.has(raw as TunnelStatus) ? (raw as TunnelStatus) : "inactive"
+}
+
+function mapConnection(connection: CfTunnel["connections"][number]): TunnelConnection {
   return {
-    id: conn.id,
-    colo: conn.colo_name,
-    ip: conn.origin_ip,
-    location: conn.colo_name, // CF uses colo code as location identifier
-    openedAt: new Date(conn.opened_at),
-    clientVersion: conn.client_version,
-    isPendingReconnect: conn.is_pending_reconnect,
+    id: connection.id,
+    colo: connection.colo_name,
+    ip: connection.origin_ip,
+    location: connection.colo_name,
+    openedAt: new Date(connection.opened_at),
+    clientVersion: connection.client_version,
+    isPendingReconnect: connection.is_pending_reconnect,
   }
 }
 
-/**
- * Represents a Cloudflare Tunnel with full lifecycle management.
- *
- * Provides access to ingress rules, DNS records, routes, and running the tunnel.
- */
 export class Tunnel {
-  readonly id: string
-  readonly name: string
-  readonly status: TunnelStatus
-  readonly createdAt: Date
-  readonly deletedAt: Date | null
-  readonly connections: TunnelConnection[]
-  readonly remoteConfig: boolean
+  id: string
+  name: string
+  status: TunnelStatus
+  createdAt: Date
+  deletedAt: Date | null
+  connections: TunnelConnection[]
+  remoteConfig: boolean
 
-  /** Manage ingress rules */
   readonly ingress: IngressManager
-  /** Manage DNS CNAME records */
   readonly dns: DnsManager
-  /** Manage private network routes */
   readonly routes: RouteManager
 
   private readonly api: ApiClient
-  private _token: string | null = null
   private readonly binaryPath?: string
+  private token: string | null = null
+  private lastProcess: TunnelProcess | null = null
 
   constructor(data: CfTunnel, api: ApiClient, binaryPath?: string) {
+    this.api = api
+    this.binaryPath = binaryPath
+    this.ingress = new IngressManager(api, data.id)
+    this.dns = new DnsManager(api, data.id)
+    this.routes = new RouteManager(api, data.id)
+
     this.id = data.id
     this.name = data.name
-    this.status = data.status as TunnelStatus
+    this.status = toTunnelStatus(data.status)
     this.createdAt = new Date(data.created_at)
     this.deletedAt = data.deleted_at ? new Date(data.deleted_at) : null
     this.connections = (data.connections ?? []).map(mapConnection)
     this.remoteConfig = data.remote_config
-
-    this.api = api
-    this.binaryPath = binaryPath
-    this.ingress = new IngressManager(api, this.id)
-    this.dns = new DnsManager(api, this.id)
-    this.routes = new RouteManager(api, this.id)
   }
 
-  /** Get the tunnel token (for running on other machines) */
-  async getToken(): Promise<string> {
-    if (this._token) return this._token
+  async refresh(): Promise<this> {
+    const latest = await this.api.get<CfTunnel>(
+      this.api.accountPath(`/cfd_tunnel/${this.id}`),
+    )
 
-    const token = await this.api.get<string>(
+    this.name = latest.name
+    this.status = toTunnelStatus(latest.status)
+    this.createdAt = new Date(latest.created_at)
+    this.deletedAt = latest.deleted_at ? new Date(latest.deleted_at) : null
+    this.connections = (latest.connections ?? []).map(mapConnection)
+    this.remoteConfig = latest.remote_config
+
+    return this
+  }
+
+  async getToken(): Promise<string> {
+    if (this.token) return this.token
+
+    this.token = await this.api.get<string>(
       this.api.accountPath(`/cfd_tunnel/${this.id}/token`),
     )
-    this._token = token
-    return token
+
+    return this.token
   }
 
-  /** Run the tunnel (starts cloudflared process) */
   async run(options?: RunOptions): Promise<TunnelProcess> {
     const token = await this.getToken()
-    const binPath = this.binaryPath ?? cloudflared.path
+    const binaryPath = this.binaryPath ?? cloudflared.path
 
-    // Ensure binary is installed
     if (!this.binaryPath && !(await cloudflared.isInstalled())) {
       await cloudflared.install()
     }
 
-    return TunnelProcess.start(binPath, token, options)
+    const process = TunnelProcess.start(binaryPath, token, options)
+    this.lastProcess = process
+    return process
   }
 
-  /** Delete this tunnel */
+  logs(options?: { level?: LogEntry["level"]; since?: string; signal?: AbortSignal }): LogStream {
+    const proc = this.lastProcess
+    if (!proc) {
+      throw new Error("No running tunnel process. Call tunnel.run() first.")
+    }
+
+    const stderr = proc.stderr
+    if (!stderr) {
+      throw new Error("Tunnel process has no readable stderr stream")
+    }
+
+    return new LogStream(stderr, options)
+  }
+
   async delete(options?: DeleteOptions): Promise<void> {
-    const params: Record<string, string> = {}
-    if (options?.force) params.cascade = "true"
-
-    await this.api.delete(
-      this.api.accountPath(`/cfd_tunnel/${this.id}`),
-    )
-
     if (options?.cleanupDns) {
       const records = await this.dns.list()
       for (const record of records) {
         await this.dns.remove(record.hostname)
       }
     }
+
+    await this.api.delete(
+      this.api.accountPath(`/cfd_tunnel/${this.id}`),
+      options?.force ? { cascade: "true" } : undefined,
+    )
   }
 }

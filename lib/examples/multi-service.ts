@@ -1,10 +1,3 @@
-/**
- * Multi-Service Tunnel — one tunnel, many services.
- *
- * Demonstrates managing ingress rules, routes, and DNS
- * for a tunnel that fronts multiple local services.
- */
-
 import { TunnelClient } from "tunnel-sdk"
 
 const client = new TunnelClient({
@@ -49,7 +42,9 @@ await tunnel.routes.add("10.0.0.0/8", { vnet: "production" })
 
 // Check route resolution
 const check = await tunnel.routes.check("172.16.5.42")
-console.log(`172.16.5.42 → tunnel "${check.tunnel}" via ${check.route}`)
+if (check) {
+  console.log(`172.16.5.42 → tunnel "${check.tunnel}" via ${check.route}`)
+}
 
 // Remove a service
 await tunnel.ingress.remove("docs.example.com")

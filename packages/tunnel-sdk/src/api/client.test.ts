@@ -1,8 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { TunnelApiError, TunnelAuthError, TunnelSdkError } from "../errors.js"
 import { ApiClient } from "./client.js"
-import { TunnelApiError, TunnelAuthError } from "../errors.js"
 
-// Mock fetch globally
 const mockFetch = vi.fn()
 
 describe("ApiClient", () => {
@@ -19,6 +18,16 @@ describe("ApiClient", () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  describe("constructor", () => {
+    it("rejects empty accountId", () => {
+      expect(() => new ApiClient({ accountId: "   ", apiToken: "token" })).toThrow(TunnelSdkError)
+    })
+
+    it("rejects empty apiToken", () => {
+      expect(() => new ApiClient({ accountId: "acct", apiToken: "   " })).toThrow(TunnelSdkError)
+    })
   })
 
   describe("get", () => {
@@ -51,9 +60,7 @@ describe("ApiClient", () => {
 
     it("passes query params", async () => {
       mockFetch.mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ success: true, errors: [], messages: [], result: [] }),
-        ),
+        new Response(JSON.stringify({ success: true, errors: [], messages: [], result: [] })),
       )
 
       await client.get("/test", { status: "healthy", name: "my-app" })
@@ -93,6 +100,19 @@ describe("ApiClient", () => {
     })
   })
 
+  describe("delete", () => {
+    it("passes query params", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, errors: [], messages: [], result: null })),
+      )
+
+      await client.delete("/test", { cascade: "true" })
+
+      const calledUrl = mockFetch.mock.calls[0][0] as string
+      expect(calledUrl).toContain("cascade=true")
+    })
+  })
+
   describe("error handling", () => {
     it("throws TunnelAuthError on 401", async () => {
       mockFetch.mockResolvedValueOnce(
@@ -129,23 +149,18 @@ describe("ApiClient", () => {
 
   describe("accountPath", () => {
     it("builds account-scoped paths", () => {
-      expect(client.accountPath("/cfd_tunnel")).toBe(
-        "/accounts/test-account-id/cfd_tunnel",
-      )
+      expect(client.accountPath("/cfd_tunnel")).toBe("/accounts/test-account-id/cfd_tunnel")
     })
   })
 
   describe("zonePath", () => {
     it("builds zone-scoped paths", () => {
-      expect(client.zonePath("zone-123", "/dns_records")).toBe(
-        "/zones/zone-123/dns_records",
-      )
+      expect(client.zonePath("zone-123", "/dns_records")).toBe("/zones/zone-123/dns_records")
     })
   })
 
   describe("paginate", () => {
     it("auto-paginates through pages", async () => {
-      // Page 1
       mockFetch.mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -158,7 +173,6 @@ describe("ApiClient", () => {
         ),
       )
 
-      // Page 2
       mockFetch.mockResolvedValueOnce(
         new Response(
           JSON.stringify({

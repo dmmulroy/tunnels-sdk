@@ -1,4 +1,4 @@
-# `tunnel-sdk` — TypeScript SDK Design
+# `tunnel-sdk` — TypeScript SDK
 
 A TypeScript library for Cloudflare Tunnels with top-notch DX. Manages the full tunnel lifecycle — API calls, binary management, process lifecycle, streaming logs — in one package.
 
@@ -51,10 +51,7 @@ console.log(tunnel.url) // https://abc123.trycloudflare.com
 
 // With options
 const tunnel = await expose(3000, {
-  hostname: "app.example.com",   // requires auth
-  protocol: "http",              // http | https | tcp | ssh | rdp
-  apiToken: process.env.CF_API_TOKEN,
-  accountId: process.env.CF_ACCOUNT_ID,
+  binaryPath: "/usr/local/bin/cloudflared", // optional custom binary
 })
 
 // Cleanup
@@ -115,8 +112,10 @@ for (const t of tunnels) {
 const active = await client.tunnels.list({
   status: "healthy",
   name: "my-app",       // exact match
-  search: "prod",       // partial match
 })
+
+// `search` is a convenience alias for `name` (exact match, not fuzzy)
+const matching = await client.tunnels.list({ search: "prod" })
 
 // Pagination built-in
 for await (const tunnel of client.tunnels.listAll()) {
@@ -150,13 +149,16 @@ The `Tunnel` object is the core primitive. It represents a tunnel and provides m
 ```ts
 const tunnel = await client.tunnels.get("my-app")
 
-// Properties
+// Properties (snapshot from the last API fetch)
 tunnel.id          // "c1744f8b-faa1-48a4-9e5c-02ac921467fa"
 tunnel.name        // "my-app"
-tunnel.status      // "healthy" | "inactive" | "degraded"
+tunnel.status      // "healthy" | "inactive" | "degraded" | "down"
 tunnel.createdAt   // Date
 tunnel.connections // TunnelConnection[]
-tunnel.token       // string (for running on other machines)
+
+// Refresh the snapshot when you need the latest state
+await tunnel.refresh()
+const token = await tunnel.getToken()
 ```
 
 #### Running a Tunnel
@@ -168,7 +170,6 @@ const connection = await tunnel.run()
 // Connection info
 connection.status       // "healthy"
 connection.connectors   // [{ id, colo, ip, location }]
-connection.uptime       // Duration
 
 // Wait for healthy state
 await connection.waitUntilHealthy()
@@ -245,9 +246,11 @@ await tunnel.routes.add("10.0.0.0/8", { vnet: "production" })
 // List routes
 const routes = await tunnel.routes.list()
 
-// Check which tunnel/route handles an IP
+// Check which tunnel/route handles an IP (returns null if no route)
 const result = await tunnel.routes.check("172.16.5.42")
-// { tunnel: "my-app", route: "172.16.0.0/16", vnet: "default" }
+if (result) {
+  // { tunnel: "my-app", route: "172.16.0.0/16", vnet: "default" }
+}
 
 // Remove a route
 await tunnel.routes.remove("172.16.0.0/16")
@@ -266,7 +269,12 @@ await client.vnets.delete("staging")
 
 ### Streaming Logs (Async Iterators)
 
+`tunnel.logs()` streams from the running `cloudflared` process. Call `tunnel.run()` first.
+
 ```ts
+const connection = await tunnel.run()
+await connection.waitUntilHealthy()
+
 // Stream all logs — async iterator with backpressure
 for await (const entry of tunnel.logs()) {
   console.log(entry.timestamp, entry.level, entry.message)
@@ -324,7 +332,7 @@ connection.on("metrics", (m: TunnelMetrics) => {
 })
 
 connection.on("status", (s: TunnelStatus) => {
-  // "healthy" | "degraded" | "inactive"
+  // "healthy" | "degraded" | "inactive" | "down"
   if (s === "degraded") pagerduty.alert("Tunnel degraded")
 })
 ```
@@ -336,8 +344,9 @@ connection.on("status", (s: TunnelStatus) => {
 ```ts
 import { TunnelConfig } from "tunnel-sdk"
 
-// Validate a config object
+// Validate with autoFallback disabled — requires explicit catch-all
 const result = TunnelConfig.safeParse({
+  autoFallback: false,
   ingress: [
     { hostname: "app.example.com", service: "http://localhost:3000" },
   ],
@@ -345,10 +354,18 @@ const result = TunnelConfig.safeParse({
 
 if (!result.success) {
   console.error(result.error.format())
-  // Ingress rules must end with a catch-all rule.
+  // Ingress rules must end with a catch-all rule (no hostname).
   // Add { service: "http_status:404" } as the last rule,
-  // or set `autoFallback: true`.
+  // or set autoFallback: true.
 }
+
+// With autoFallback: true (the default), catch-all is auto-appended
+const autoConfig = TunnelConfig.parse({
+  ingress: [
+    { hostname: "app.example.com", service: "http://localhost:3000" },
+  ],
+})
+// autoConfig.ingress has 2 rules — catch-all was appended
 
 // Parse (throws on invalid)
 const config = TunnelConfig.parse({
@@ -436,16 +453,15 @@ interface Tunnel {
   createdAt: Date
   deletedAt: Date | null
   connections: TunnelConnection[]
-  token: string
   remoteConfig: boolean
 
-  // Sub-resources
   ingress: IngressManager
   dns: DnsManager
   routes: RouteManager
 
-  // Actions
+  refresh(): Promise<this>
   run(options?: RunOptions): Promise<TunnelProcess>
+  logs(options?: { level?: LogEntry["level"]; since?: string; signal?: AbortSignal }): LogStream
   delete(options?: DeleteOptions): Promise<void>
   getToken(): Promise<string>
 }
@@ -543,9 +559,6 @@ interface TunnelProcessEvents {
 
 ```ts
 interface RunOptions {
-  /** Override config for this run */
-  config?: TunnelConfig
-
   /** Metrics server address (e.g., "localhost:12345") */
   metrics?: string
 

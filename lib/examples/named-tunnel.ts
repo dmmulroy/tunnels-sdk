@@ -1,11 +1,3 @@
-/**
- * Named Tunnel — full lifecycle in one chain.
- *
- * Creates a tunnel, configures ingress, sets up DNS, and runs it.
- * Demonstrates the core value prop: what takes 4+ API calls and
- * a separate `cloudflared` process becomes one fluent chain.
- */
-
 import { TunnelClient } from "tunnel-sdk"
 
 const client = new TunnelClient({

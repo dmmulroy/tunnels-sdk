@@ -1,10 +1,3 @@
-/**
- * Streaming Logs — async iterators for tunnel observability.
- *
- * Demonstrates using async iterators to process tunnel logs
- * with backpressure, filtering, and aggregation.
- */
-
 import { TunnelClient } from "tunnel-sdk"
 
 const client = new TunnelClient({
@@ -14,16 +7,15 @@ const client = new TunnelClient({
 
 const tunnel = await client.tunnels.get("my-app")
 
+// Run the tunnel first — logs() streams from the running process
+await using connection = await tunnel.run()
+await connection.waitUntilHealthy()
+
 // Stream all logs
 console.log("--- All logs ---")
 for await (const entry of tunnel.logs()) {
   const ts = entry.timestamp.toISOString()
   console.log(`[${ts}] ${entry.level.toUpperCase()} ${entry.message}`)
-
-  // Each entry is fully typed
-  if (entry.event === "connected") {
-    console.log(`  → Connected to ${entry.connectorId}`)
-  }
 }
 
 // Stream only errors from the last 5 minutes
@@ -32,7 +24,7 @@ for await (const entry of tunnel.logs({ level: "error", since: "5m" })) {
   console.error(`[ERROR] ${entry.message}`)
 }
 
-// Collect into an array (careful with long-running tunnels)
+// Collect into an array
 const recentErrors = await tunnel
   .logs({ level: "error", since: "1h" })
   .toArray()

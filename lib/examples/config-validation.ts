@@ -1,38 +1,30 @@
-/**
- * Config Validation — catch mistakes at build time, not deploy time.
- *
- * Demonstrates Zod-powered config validation with actionable errors.
- * Use in tests, CI, or pre-deploy hooks.
- */
-
 import { TunnelConfig } from "tunnel-sdk"
 
-// --- Validate an object ---
+// --- Missing catch-all with autoFallback disabled ---
 
 const result = TunnelConfig.safeParse({
+  autoFallback: false,
   ingress: [
     { hostname: "app.example.com", service: "http://localhost:3000" },
-    // Missing catch-all rule!
   ],
 })
 
 if (!result.success) {
   console.error("Config validation failed:")
   console.error(result.error.format())
-  // Ingress rules must end with a catch-all rule.
+  // Ingress rules must end with a catch-all rule (no hostname).
   // Add { service: "http_status:404" } as the last rule,
-  // or set `autoFallback: true`.
+  // or set autoFallback: true.
 }
 
-// --- Validate with auto-fallback ---
+// --- Auto-fallback appends catch-all (default behavior) ---
 
 const config = TunnelConfig.parse({
-  autoFallback: true,  // auto-add catch-all
   ingress: [
     { hostname: "app.example.com", service: "http://localhost:3000" },
   ],
 })
-// Works! catch-all is auto-appended.
+// autoFallback defaults to true — catch-all is auto-appended.
 console.log(config.ingress)
 // [
 //   { hostname: "app.example.com", service: "http://localhost:3000" },
@@ -53,7 +45,7 @@ const yamlConfig = TunnelConfig.fromYaml(`
     - service: http_status:404
 `)
 
-// --- Detect typos in keys ---
+// --- Detect typos in keys (strict mode rejects unknown keys) ---
 
 try {
   TunnelConfig.parse({
@@ -62,7 +54,7 @@ try {
         hostname: "app.example.com",
         service: "http://localhost:3000",
         originRequest: {
-          connetTimeout: "30s",  // typo!
+          connetTimeout: "30s", // typo!
         },
       },
       { service: "http_status:404" },
@@ -70,8 +62,7 @@ try {
   })
 } catch (err) {
   console.error(err)
-  // ZodError: Unrecognized key "connetTimeout" in originRequest.
-  // Did you mean "connectTimeout"?
+  // ZodError: Unrecognized key(s) in object: 'connetTimeout'
 }
 
 // --- Detect duplicate hostnames ---

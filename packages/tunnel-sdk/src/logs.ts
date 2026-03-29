@@ -1,59 +1,39 @@
-import type { Readable } from "node:stream"
 import { createInterface } from "node:readline"
+import type { Readable } from "node:stream"
 import type { LogEntry } from "./types.js"
 
 interface LogStreamOptions {
-  /** Filter by log level */
   level?: "info" | "warn" | "error" | "debug"
-  /** Filter to entries newer than this duration (e.g., "5m", "1h") */
   since?: string
-  /** AbortSignal for cancellation */
   signal?: AbortSignal
 }
 
-/**
- * Async iterable log stream with filtering and backpressure.
- *
- * @example
- * ```ts
- * for await (const entry of new LogStream(stderr)) {
- *   console.log(entry.timestamp, entry.level, entry.message)
- * }
- * ```
- */
 export class LogStream implements AsyncIterable<LogEntry> {
-  private readonly source: Readable
-  private readonly options: LogStreamOptions
-
-  constructor(source: Readable, options: LogStreamOptions = {}) {
-    this.source = source
-    this.options = options
-  }
+  constructor(
+    private readonly source: Readable,
+    private readonly options: LogStreamOptions = {},
+  ) {}
 
   async *[Symbol.asyncIterator](): AsyncGenerator<LogEntry> {
-    const rl = createInterface({ input: this.source })
+    const lines = createInterface({ input: this.source })
     const sinceDate = this.options.since ? parseSince(this.options.since) : null
 
     try {
-      for await (const line of rl) {
-        // Check abort
+      for await (const line of lines) {
         if (this.options.signal?.aborted) break
 
         const entry = parseLine(line)
         if (!entry) continue
-
-        // Apply filters
         if (this.options.level && entry.level !== this.options.level) continue
         if (sinceDate && entry.timestamp < sinceDate) continue
 
         yield entry
       }
     } finally {
-      rl.close()
+      lines.close()
     }
   }
 
-  /** Collect all entries into an array */
   async toArray(): Promise<LogEntry[]> {
     const entries: LogEntry[] = []
     for await (const entry of this) {
@@ -63,7 +43,6 @@ export class LogStream implements AsyncIterable<LogEntry> {
   }
 }
 
-/** Parse a single log line (JSON or unstructured) */
 function parseLine(line: string): LogEntry | null {
   try {
     const data = JSON.parse(line)
@@ -76,7 +55,6 @@ function parseLine(line: string): LogEntry | null {
       connectorId: data.connIndex !== undefined ? String(data.connIndex) : undefined,
     }
   } catch {
-    // Unstructured log line
     const level = line.includes("ERR")
       ? "error"
       : line.includes("WRN")
@@ -95,27 +73,27 @@ function parseLine(line: string): LogEntry | null {
 }
 
 function normalizeLevel(level: string): LogEntry["level"] {
-  const l = level.toLowerCase()
-  if (l === "error" || l === "fatal" || l === "err") return "error"
-  if (l === "warn" || l === "warning" || l === "wrn") return "warn"
-  if (l === "debug" || l === "dbg" || l === "trace") return "debug"
+  const normalized = level.toLowerCase()
+  if (normalized === "error" || normalized === "fatal" || normalized === "err") return "error"
+  if (normalized === "warn" || normalized === "warning" || normalized === "wrn") return "warn"
+  if (normalized === "debug" || normalized === "dbg" || normalized === "trace") return "debug"
   return "info"
 }
 
-/** Parse a duration string like "5m", "1h", "30s" into a Date in the past */
 function parseSince(since: string): Date {
   const match = since.match(/^(\d+)\s*(s|m|h|d)$/)
-  if (!match) throw new Error(`Invalid "since" duration: "${since}". Use e.g., "5m", "1h", "30s"`)
+  if (!match) {
+    throw new Error(`Invalid "since" duration: "${since}". Use e.g., "5m", "1h", "30s"`)
+  }
 
-  const value = parseInt(match[1], 10)
+  const value = Number.parseInt(match[1], 10)
   const unit = match[2]
-
-  const ms: Record<string, number> = {
+  const unitToMs: Record<string, number> = {
     s: 1000,
     m: 60_000,
     h: 3_600_000,
     d: 86_400_000,
   }
 
-  return new Date(Date.now() - value * ms[unit])
+  return new Date(Date.now() - value * unitToMs[unit])
 }
