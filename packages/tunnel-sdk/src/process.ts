@@ -1,8 +1,9 @@
-import { spawn, type ChildProcess } from "node:child_process"
+import { spawn as nodeSpawn, type ChildProcess } from "node:child_process"
 import { EventEmitter } from "node:events"
 import { createInterface } from "node:readline"
 import type {
   ConnectorInfo,
+  ProcessSpawner,
   ReconnectAttempt,
   RunOptions,
   TunnelError,
@@ -10,6 +11,8 @@ import type {
   TunnelProcessEvents,
   TunnelStatus,
 } from "./types.js"
+
+const defaultSpawner: ProcessSpawner = { spawn: nodeSpawn }
 
 type TunnelProcessEvent = keyof TunnelProcessEvents
 
@@ -47,7 +50,8 @@ export class TunnelProcess {
     if (options?.gracePeriod) args.push("--grace-period", options.gracePeriod)
     if (options?.retries) args.push("--retries", String(options.retries))
 
-    const proc = spawn(binaryPath, args, {
+    const spawnFn = options?.spawner ?? defaultSpawner
+    const proc = spawnFn.spawn(binaryPath, args, {
       stdio: ["ignore", "pipe", "pipe"],
     })
 

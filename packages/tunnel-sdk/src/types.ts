@@ -1,4 +1,10 @@
+import type { ChildProcess, SpawnOptions } from "node:child_process"
+
 export type TunnelStatus = "healthy" | "inactive" | "degraded" | "down"
+
+export interface ProcessSpawner {
+  spawn(command: string, args: string[], options: SpawnOptions): ChildProcess
+}
 
 export interface TunnelConnection {
   id: string
@@ -47,6 +53,7 @@ export interface RunOptions {
   gracePeriod?: string
   retries?: number
   signal?: AbortSignal
+  spawner?: ProcessSpawner
 }
 
 export interface DeleteOptions {
