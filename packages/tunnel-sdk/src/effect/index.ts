@@ -58,6 +58,10 @@ export type {
   ReconnectAttempt,
 } from "./services/TunnelProcess.js"
 
+// ─── Stderr parsing ───
+export { processStderr, applyEvents, parseLine, toEvent } from "./services/parse-stderr.js"
+export type { StderrStreams } from "./services/parse-stderr.js"
+
 // ─── Top-level Effects ───
 export { expose } from "./expose.js"
 

@@ -2,6 +2,7 @@ import { Effect, Layer, Ref, Scope, ServiceMap, Stream, SubscriptionRef } from "
 import { TunnelProcessError, BinaryInstallError } from "../errors.js"
 import type { ConnectorInfo, LogEntry, TunnelMetrics, TunnelStatus } from "../schemas.js"
 import { CloudflaredBinary } from "./CloudflaredBinary.js"
+import { processStderr, applyEvents } from "./parse-stderr.js"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -104,9 +105,15 @@ export class TunnelProcessService extends ServiceMap.Service<
             proc.on("error", () => resolve(1))
           })
 
-          // TODO: Parse stderr for events, connectors, metrics
-          const events: Stream.Stream<TunnelEvent> = Stream.empty
-          const logs: Stream.Stream<LogEntry> = Stream.empty
+          // Parse stderr JSON lines into log entries and tunnel events
+          const { logs, events } = yield* processStderr(
+            proc.stderr as unknown as NodeJS.ReadableStream,
+          )
+
+          // Fork a fiber to apply events to refs (status + connectors)
+          yield* Effect.forkScoped(
+            applyEvents(events, statusRef, connectorsRef),
+          )
 
           const waitUntilHealthy: Effect.Effect<void, TunnelProcessError> =
             SubscriptionRef.changes(statusRef).pipe(
