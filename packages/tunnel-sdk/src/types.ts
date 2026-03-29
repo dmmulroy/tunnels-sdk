@@ -38,6 +38,7 @@ export interface TunnelClientOptions {
   apiToken: string
   binaryPath?: string
   baseUrl?: string
+  fetch?: typeof globalThis.fetch
 }
 
 export interface RunOptions {

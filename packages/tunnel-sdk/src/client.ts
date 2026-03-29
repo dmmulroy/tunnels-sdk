@@ -28,6 +28,7 @@ export class TunnelClient {
       accountId: options.accountId,
       apiToken: options.apiToken,
       baseUrl: options.baseUrl,
+      fetch: options.fetch,
     })
     this.binaryPath = options.binaryPath
     this.tunnels = new TunnelOperations(this.api, this.binaryPath)

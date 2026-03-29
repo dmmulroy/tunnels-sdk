@@ -19,12 +19,14 @@ export interface ApiClientOptions {
   accountId: string
   apiToken: string
   baseUrl?: string
+  fetch?: typeof globalThis.fetch
 }
 
 export class ApiClient {
   private readonly accountId: string
   private readonly apiToken: string
   private readonly baseUrl: string
+  private readonly fetch: typeof globalThis.fetch
 
   constructor(options: ApiClientOptions) {
     const accountId = options.accountId.trim()
@@ -40,6 +42,7 @@ export class ApiClient {
     this.accountId = accountId
     this.apiToken = apiToken
     this.baseUrl = options.baseUrl ?? "https://api.cloudflare.com/client/v4"
+    this.fetch = options.fetch ?? globalThis.fetch
   }
 
   async get<T>(path: string, params?: Record<string, string>): Promise<T> {
@@ -109,7 +112,7 @@ export class ApiClient {
       headers["Content-Type"] = "application/json"
     }
 
-    return fetch(url, {
+    return this.fetch(url, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,

@@ -2,12 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { TunnelClient } from "./client.js"
 import { TunnelSdkError } from "./errors.js"
 
-const mockFetch = vi.fn()
-
 describe("TunnelClient", () => {
+  let mockFetch: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
-    vi.clearAllMocks()
-    vi.stubGlobal("fetch", mockFetch)
+    mockFetch = vi.fn()
   })
 
   it("rejects using name and search together", async () => {
@@ -15,6 +14,7 @@ describe("TunnelClient", () => {
       accountId: "acct",
       apiToken: "token",
       baseUrl: "https://api.test.com/v4",
+      fetch: mockFetch as unknown as typeof globalThis.fetch,
     })
 
     await expect(client.tunnels.list({ name: "a", search: "b" })).rejects.toThrow(TunnelSdkError)
@@ -29,6 +29,7 @@ describe("TunnelClient", () => {
       accountId: "acct",
       apiToken: "token",
       baseUrl: "https://api.test.com/v4",
+      fetch: mockFetch as unknown as typeof globalThis.fetch,
     })
 
     await client.tunnels.list({ search: "prod" })
