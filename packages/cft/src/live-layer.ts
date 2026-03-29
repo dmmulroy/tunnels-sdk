@@ -1,4 +1,4 @@
-import { Effect, Layer, Redacted, Stream } from "effect"
+import { Effect, Exit, Layer, Redacted, Ref, Scope, Stream } from "effect"
 import {
   TunnelOperations,
   IngressManager,
@@ -11,6 +11,8 @@ import {
   LiveLayer as SdkLiveLayer,
   expose as sdkExpose,
   type TunnelInfo as SdkTunnelInfo,
+  type RunningTunnel,
+  type LogEntry,
   IngressRule,
 } from "tunnel-sdk/effect"
 import { CftError } from "./errors.js"
@@ -106,11 +108,32 @@ const QuickTunnelServiceLive = Layer.effect(
 // TunnelApiService — wraps SDK TunnelOperations + TunnelProcessService
 // ---------------------------------------------------------------------------
 
-const TunnelApiServiceLive = Layer.effect(
+// ---------------------------------------------------------------------------
+// Running tunnel handle — tracks a running tunnel process for stop/getLogs
+// ---------------------------------------------------------------------------
+
+interface RunningTunnelHandle {
+  readonly tunnelId: string
+  readonly tunnelName: string
+  readonly scope: Scope.Closeable
+  readonly tunnel: RunningTunnel
+}
+
+export const TunnelApiServiceLive = Layer.effect(
   TunnelApiService,
   Effect.gen(function* () {
     const ops = yield* TunnelOperations
     const processSvc = yield* TunnelProcessService
+
+    // Track running tunnels by name AND id for flexible lookup
+    const runningRef = yield* Ref.make<ReadonlyArray<RunningTunnelHandle>>([])
+
+    const findRunning = (ref: string) =>
+      Ref.get(runningRef).pipe(
+        Effect.map((handles) =>
+          handles.find((h) => h.tunnelId === ref || h.tunnelName === ref),
+        ),
+      )
 
     return {
       create: (name: string, opts?: CreateTunnelOptions) =>
@@ -136,27 +159,68 @@ const TunnelApiServiceLive = Layer.effect(
       getToken: (ref: string) =>
         catchSdkErrors(ops.getToken(ref)),
 
-      // run/stop/getLogs need more complex state management.
-      // For now, run gets a token and starts the process but doesn't persist state.
       run: (ref: string, opts?: RunTunnelOptions) =>
         catchSdkErrors(
           Effect.gen(function* () {
-            const tunnel = yield* ops.get(ref)
-            const token = yield* ops.getToken(tunnel.id)
-            // TODO: Store the running tunnel handle for stop/getLogs
-            yield* processSvc.run(token, { logLevel: opts?.logLevel }).pipe(Effect.scoped)
+            const tunnelInfo = yield* ops.get(ref)
+            const token = yield* ops.getToken(tunnelInfo.id)
+
+            // Create a scope we control — close it to kill the process
+            const scope = yield* Scope.make()
+            const runningTunnel = yield* processSvc
+              .run(token, { logLevel: opts?.logLevel })
+              .pipe(Effect.provideService(Scope.Scope, scope))
+
+            const handle: RunningTunnelHandle = {
+              tunnelId: tunnelInfo.id,
+              tunnelName: tunnelInfo.name,
+              scope,
+              tunnel: runningTunnel,
+            }
+
+            yield* Ref.update(runningRef, (hs) => [...hs, handle])
           }),
         ),
 
-      stop: (_ref: string) =>
-        Effect.fail(CftError.UserError({
-          message: "Tunnel stop not yet implemented — requires running tunnel state management",
-        })),
+      stop: (ref: string) =>
+        Effect.gen(function* () {
+          const handle = yield* findRunning(ref)
+          if (!handle) {
+            return yield* Effect.fail(
+              CftError.UserError({ message: `No running tunnel found: ${ref}` }),
+            )
+          }
+          // Close the scope — triggers SIGTERM finalizer in TunnelProcess
+          yield* Scope.close(handle.scope, Exit.void)
+          // Remove from running list
+          yield* Ref.update(runningRef, (hs) =>
+            hs.filter((h) => h.tunnelId !== handle.tunnelId),
+          )
+        }),
 
-      getLogs: (_ref: string) =>
-        Effect.fail(CftError.UserError({
-          message: "Tunnel logs not yet implemented — requires running tunnel state management",
-        })),
+      getLogs: (ref: string) =>
+        Effect.gen(function* () {
+          const handle = yield* findRunning(ref)
+          if (!handle) {
+            return yield* Effect.fail(
+              CftError.UserError({ message: `No running tunnel found: ${ref}` }),
+            )
+          }
+          // Collect available log entries (take up to 100 recent)
+          const entries = yield* handle.tunnel.logs.pipe(
+            Stream.take(100),
+            Stream.runCollect,
+            Effect.timeout("100 millis"),
+            Effect.catch(() => Effect.succeed([] as Iterable<LogEntry>)),
+          )
+          return Array.from(entries).map(
+            (e): import("./services.js").TunnelLogEntry => ({
+              timestamp: e.timestamp.toISOString(),
+              level: e.level,
+              message: e.message,
+            }),
+          )
+        }),
     }
   }),
 )
