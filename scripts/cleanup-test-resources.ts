@@ -3,7 +3,7 @@
  * Cleanup orphaned test resources from a Cloudflare account.
  *
  * Finds and deletes all tunnels, vnets, and DNS records matching the
- * `cft-test-` prefix. Run this when tests crash without cleanup, or
+ * `tunnels-test-` prefix. Run this when tests crash without cleanup, or
  * periodically in CI to prevent resource accumulation.
  *
  * Usage:
@@ -51,7 +51,7 @@ async function main() {
     `/accounts/${accountId}/cfd_tunnel`,
     { is_deleted: "false", per_page: "100" },
   )
-  const testTunnels = tunnels.filter((t) => t.name.startsWith("cft-test-"))
+  const testTunnels = tunnels.filter((t) => t.name.startsWith("tunnels-test-"))
   console.log(`Found ${testTunnels.length} test tunnel(s)`)
   for (const t of testTunnels) {
     console.log(`  ${dryRun ? "would delete" : "deleting"}: ${t.name} (${t.id})`)
@@ -68,7 +68,7 @@ async function main() {
   const vnets = await cfGet<Array<{ id: string; name: string }>>(
     `/accounts/${accountId}/teamnet/virtual_networks`,
   )
-  const testVnets = vnets.filter((v) => v.name.startsWith("cft-test-"))
+  const testVnets = vnets.filter((v) => v.name.startsWith("tunnels-test-"))
   console.log(`Found ${testVnets.length} test vnet(s)`)
   for (const v of testVnets) {
     console.log(`  ${dryRun ? "would delete" : "deleting"}: ${v.name} (${v.id})`)

@@ -16,33 +16,33 @@ Remove all the old class-based implementation files that have been replaced by t
 ## Context
 
 After the Effect refactor, these files/directories are dead code:
-- `packages/tunnel-sdk/src/api/client.ts` — replaced by `effect/services/CloudflareApi.ts`
-- `packages/tunnel-sdk/src/api/interfaces.ts` — replaced by `CloudflareApi` service interface
-- `packages/tunnel-sdk/src/api/types.ts` — replaced by `effect/schemas.ts`
-- `packages/tunnel-sdk/src/api/client.test.ts` — replaced by `effect/services/CloudflareApi.test.ts`
-- `packages/tunnel-sdk/src/api/interfaces.test.ts`
-- `packages/tunnel-sdk/src/client.ts` — replaced by wrapper in `index.ts`
-- `packages/tunnel-sdk/src/client.test.ts`
-- `packages/tunnel-sdk/src/tunnel.ts` — replaced by `TunnelOperations` service + `TunnelInfo` schema
-- `packages/tunnel-sdk/src/tunnel.test.ts`
-- `packages/tunnel-sdk/src/tunnel-operations.ts` — replaced by `effect/services/TunnelOperations.ts`
-- `packages/tunnel-sdk/src/tunnel-operations.test.ts`
-- `packages/tunnel-sdk/src/process.ts` — replaced by `effect/services/TunnelProcess.ts`
-- `packages/tunnel-sdk/src/process.test.ts`
-- `packages/tunnel-sdk/src/logs.ts` — replaced by `LogEntry` stream in TunnelProcess
-- `packages/tunnel-sdk/src/logs.test.ts`
-- `packages/tunnel-sdk/src/expose.ts` — replaced by `effect/expose.ts`
-- `packages/tunnel-sdk/src/expose.test.ts`
-- `packages/tunnel-sdk/src/errors.ts` — replaced by `effect/errors.ts`
-- `packages/tunnel-sdk/src/errors.test.ts`
-- `packages/tunnel-sdk/src/config/schema.ts` — replaced by `effect/config.ts`
-- `packages/tunnel-sdk/src/config/schema.test.ts`
-- `packages/tunnel-sdk/src/defaults.ts` — replaced by service layers
-- `packages/tunnel-sdk/src/defaults.test.ts`
-- `packages/tunnel-sdk/src/test-utils.ts`
-- `packages/tunnel-sdk/src/managers/` — entire directory (replaced by Effect services)
+- `packages/tunnels/src/api/client.ts` — replaced by `effect/services/CloudflareApi.ts`
+- `packages/tunnels/src/api/interfaces.ts` — replaced by `CloudflareApi` service interface
+- `packages/tunnels/src/api/types.ts` — replaced by `effect/schemas.ts`
+- `packages/tunnels/src/api/client.test.ts` — replaced by `effect/services/CloudflareApi.test.ts`
+- `packages/tunnels/src/api/interfaces.test.ts`
+- `packages/tunnels/src/client.ts` — replaced by wrapper in `index.ts`
+- `packages/tunnels/src/client.test.ts`
+- `packages/tunnels/src/tunnel.ts` — replaced by `TunnelOperations` service + `TunnelInfo` schema
+- `packages/tunnels/src/tunnel.test.ts`
+- `packages/tunnels/src/tunnel-operations.ts` — replaced by `effect/services/TunnelOperations.ts`
+- `packages/tunnels/src/tunnel-operations.test.ts`
+- `packages/tunnels/src/process.ts` — replaced by `effect/services/TunnelProcess.ts`
+- `packages/tunnels/src/process.test.ts`
+- `packages/tunnels/src/logs.ts` — replaced by `LogEntry` stream in TunnelProcess
+- `packages/tunnels/src/logs.test.ts`
+- `packages/tunnels/src/expose.ts` — replaced by `effect/expose.ts`
+- `packages/tunnels/src/expose.test.ts`
+- `packages/tunnels/src/errors.ts` — replaced by `effect/errors.ts`
+- `packages/tunnels/src/errors.test.ts`
+- `packages/tunnels/src/config/schema.ts` — replaced by `effect/config.ts`
+- `packages/tunnels/src/config/schema.test.ts`
+- `packages/tunnels/src/defaults.ts` — replaced by service layers
+- `packages/tunnels/src/defaults.test.ts`
+- `packages/tunnels/src/test-utils.ts`
+- `packages/tunnels/src/managers/` — entire directory (replaced by Effect services)
 
-**Keep**: `packages/tunnel-sdk/src/bin/` — the `cloudflared.ts` binary resolver is still used by `CloudflaredBinary` service.
+**Keep**: `packages/tunnels/src/bin/` — the `cloudflared.ts` binary resolver is still used by `CloudflaredBinary` service.
 
 ## What to do
 
@@ -51,7 +51,7 @@ After the Effect refactor, these files/directories are dead code:
 3. Remove the old `api/` directory
 4. Remove the old `managers/` directory
 5. Remove the old `config/` directory
-6. Check for any remaining imports of old files — `grep -r "from.*\./api\|from.*\./tunnel\|from.*\./process\|from.*\./logs\|from.*\./expose\|from.*\./errors\|from.*\./config\|from.*\./defaults\|from.*\./managers\|from.*\./client" packages/tunnel-sdk/src/ --include="*.ts"`
+6. Check for any remaining imports of old files — `grep -r "from.*\./api\|from.*\./tunnel\|from.*\./process\|from.*\./logs\|from.*\./expose\|from.*\./errors\|from.*\./config\|from.*\./defaults\|from.*\./managers\|from.*\./client" packages/tunnels/src/ --include="*.ts"`
 7. Update tsdown config if it references any old entry points
 8. Run `pnpm test` and `pnpm typecheck` again to confirm nothing broke
 

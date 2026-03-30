@@ -1,24 +1,24 @@
-# Effect Refactor Plan — `tunnel-sdk`
+# Effect Refactor Plan — `tunnels`
 
 ## Overview
 
-Refactor the entire `tunnel-sdk` from class-based async/await TypeScript to idiomatic Effect TS. Two entry points:
+Refactor the entire `tunnels` from class-based async/await TypeScript to idiomatic Effect TS. Two entry points:
 
 | Entry point | What consumers get |
 |---|---|
-| `tunnel-sdk/effect` | Pure Effect services, layers, schemas, errors — full composability |
-| `tunnel-sdk` | Thin async/await wrapper via `ManagedRuntime` — drop-in for non-Effect users |
+| `tunnels/effect` | Pure Effect services, layers, schemas, errors — full composability |
+| `tunnels` | Thin async/await wrapper via `ManagedRuntime` — drop-in for non-Effect users |
 
-The `cft` CLI package already uses Effect and will become a direct consumer of `tunnel-sdk/effect`, replacing its current placeholder `LiveLayer`.
+The `tunnels` CLI package already uses Effect and will become a direct consumer of `tunnels/effect`, replacing its current placeholder `LiveLayer`.
 
 ---
 
 ## Source Layout
 
 ```
-packages/tunnel-sdk/src/
+packages/tunnels/src/
 ├── effect/                          # ← NEW: Pure Effect SDK (primary source of truth)
-│   ├── index.ts                     #   Re-exports everything for tunnel-sdk/effect
+│   ├── index.ts                     #   Re-exports everything for tunnels/effect
 │   │
 │   ├── errors.ts                    #   Schema.TaggedErrorClass errors
 │   ├── schemas.ts                   #   Effect Schema versions of all domain types
@@ -321,7 +321,7 @@ export class CloudflareApi extends ServiceMap.Service<CloudflareApi, {
   paginate<T>(path: string, params?: Record<string, string>): Stream.Stream<T, TunnelApiError | TunnelAuthError>
   accountPath(path: string): string
   zonePath(zoneId: string, path: string): string
-}>()("tunnel-sdk/CloudflareApi") {
+}>()("tunnels/CloudflareApi") {
 
   static layer(config: {
     accountId: string
@@ -370,7 +370,7 @@ export class TunnelOperations extends ServiceMap.Service<TunnelOperations, {
   delete(nameOrId: string, options?: DeleteOptions): Effect.Effect<void, TunnelApiError | TunnelAuthError | TunnelNotFoundError>
   getToken(tunnelId: string): Effect.Effect<string, TunnelApiError | TunnelAuthError>
   refresh(tunnelId: string): Effect.Effect<TunnelInfo, TunnelApiError | TunnelAuthError>
-}>()("tunnel-sdk/TunnelOperations") {
+}>()("tunnels/TunnelOperations") {
 
   static readonly layer: Layer.Layer<TunnelOperations, never, CloudflareApi> =
     Layer.effect(
@@ -397,7 +397,7 @@ export class IngressManager extends ServiceMap.Service<IngressManager, {
   add(tunnelId: string, rule: IngressRule): Effect.Effect<void, TunnelApiError | TunnelAuthError>
   remove(tunnelId: string, hostname: string): Effect.Effect<void, TunnelApiError | TunnelAuthError | TunnelSdkError>
   set(tunnelId: string, rules: ReadonlyArray<IngressRule>): Effect.Effect<void, TunnelApiError | TunnelAuthError>
-}>()("tunnel-sdk/IngressManager") {
+}>()("tunnels/IngressManager") {
 
   static readonly layer: Layer.Layer<IngressManager, never, CloudflareApi> = ...
 }
@@ -412,7 +412,7 @@ export class DnsManager extends ServiceMap.Service<DnsManager, {
   ensure(tunnelId: string, hostname: string, options?: DnsEnsureOptions): Effect.Effect<void, TunnelApiError | TunnelAuthError | TunnelSdkError>
   remove(tunnelId: string, hostname: string): Effect.Effect<void, TunnelApiError | TunnelAuthError>
   list(tunnelId: string): Effect.Effect<ReadonlyArray<DnsRecord>, TunnelApiError | TunnelAuthError>
-}>()("tunnel-sdk/DnsManager") {
+}>()("tunnels/DnsManager") {
 
   static readonly layer: Layer.Layer<DnsManager, never, CloudflareApi> = Layer.effect(
     DnsManager,
@@ -441,7 +441,7 @@ export class RouteManager extends ServiceMap.Service<RouteManager, {
   remove(tunnelId: string, network: string): Effect.Effect<void, TunnelApiError | TunnelAuthError | TunnelSdkError>
   list(tunnelId: string): Effect.Effect<ReadonlyArray<Route>, TunnelApiError | TunnelAuthError>
   check(tunnelId: string, ip: string): Effect.Effect<RouteCheckResult | null, TunnelApiError | TunnelAuthError>
-}>()("tunnel-sdk/RouteManager") {
+}>()("tunnels/RouteManager") {
 
   static readonly layer: Layer.Layer<RouteManager, never, CloudflareApi> = ...
 }
@@ -454,7 +454,7 @@ export class VNetManager extends ServiceMap.Service<VNetManager, {
   create(name: string, options?: VNetCreateOptions): Effect.Effect<VNet, TunnelApiError | TunnelAuthError>
   delete(name: string): Effect.Effect<void, TunnelApiError | TunnelAuthError | TunnelSdkError>
   list(): Effect.Effect<ReadonlyArray<VNet>, TunnelApiError | TunnelAuthError>
-}>()("tunnel-sdk/VNetManager") {
+}>()("tunnels/VNetManager") {
 
   static readonly layer: Layer.Layer<VNetManager, never, CloudflareApi> = ...
 }
@@ -470,7 +470,7 @@ export class CloudflaredBinary extends ServiceMap.Service<CloudflaredBinary, {
   ensureInstalled(): Effect.Effect<string, BinaryInstallError>
   install(version?: string): Effect.Effect<void, BinaryInstallError>
   isInstalled(): Effect.Effect<boolean>
-}>()("tunnel-sdk/CloudflaredBinary") {
+}>()("tunnels/CloudflaredBinary") {
 
   // Default layer wraps the existing cloudflared module
   static readonly layer: Layer.Layer<CloudflaredBinary> = Layer.effect(
@@ -552,7 +552,7 @@ export interface RunOptions {
 export class TunnelProcessService extends ServiceMap.Service<TunnelProcessService, {
   // Returns a Scoped RunningTunnel — process is killed when scope closes
   run(token: string, options?: RunOptions): Effect.Effect<RunningTunnel, TunnelProcessError, Scope>
-}>()("tunnel-sdk/TunnelProcess") {
+}>()("tunnels/TunnelProcess") {
 
   static readonly layer: Layer.Layer<
     TunnelProcessService, never,
@@ -813,7 +813,7 @@ export const TestLayer = Layer.mergeAll(
 
 ---
 
-## Entry Point: `tunnel-sdk/effect` (`effect/index.ts`)
+## Entry Point: `tunnels/effect` (`effect/index.ts`)
 
 ```ts
 // ─── Errors ───
@@ -874,7 +874,7 @@ import {
   DnsManager,
   TunnelProcessService,
   LiveLayer,
-} from "tunnel-sdk/effect"
+} from "tunnels/effect"
 
 const program = Effect.gen(function*() {
   const tunnels = yield* TunnelOperations
@@ -924,7 +924,7 @@ const program = Effect.gen(function*() {
 
 ---
 
-## Entry Point: `tunnel-sdk` (`index.ts`) — Async/Await Wrapper
+## Entry Point: `tunnels` (`index.ts`) — Async/Await Wrapper
 
 Thin wrapper that creates a `ManagedRuntime` internally and exposes the same API shape consumers have today. Zero Effect knowledge required.
 
@@ -1056,27 +1056,27 @@ export { TunnelConfig } from "./effect/config.js"
 
 ---
 
-## Migration Path for `cft` CLI
+## Migration Path for `tunnels` CLI
 
-The `cft` CLI's `LiveLayer` (currently all `notImplemented` stubs) gets replaced with the real `tunnel-sdk/effect` services:
+The `tunnels` CLI's `LiveLayer` (currently all `notImplemented` stubs) gets replaced with the real `tunnels/effect` services:
 
 ```ts
-// packages/cft/src/live-layer.ts — AFTER
+// packages/cli/src/live-layer.ts — AFTER
 import { Layer } from "effect"
 import {
   LiveLayer as SdkLiveLayer,
   TunnelOperations,
   // ...
-} from "tunnel-sdk/effect"
+} from "tunnels/effect"
 
-// Adapter layers that bridge the cft service interfaces to the SDK services
-// (or refactor cft services to directly use SDK services)
+// Adapter layers that bridge the CLI service interfaces to the SDK services
+// (or refactor CLI services to directly use SDK services)
 
 export const LiveLayer = SdkLiveLayer({
   accountId: process.env.CF_ACCOUNT_ID!,
   apiToken: process.env.CF_API_TOKEN!,
 }).pipe(
-  Layer.provideMerge(/* cft-specific services like ConfigService, AuthService */)
+  Layer.provideMerge(/* CLI-specific services like ConfigService, AuthService */)
 )
 ```
 
@@ -1085,7 +1085,7 @@ export const LiveLayer = SdkLiveLayer({
 ## Dependency Changes
 
 ```jsonc
-// packages/tunnel-sdk/package.json
+// packages/tunnels/package.json
 {
   "dependencies": {
     "effect": "beta",             // NEW — replaces zod for schemas + runtime
@@ -1207,7 +1207,7 @@ the production layer.
 ```ts
 export class TunnelProcessService extends ServiceMap.Service<TunnelProcessService, {
   run(token: string, options?: RunOptions): Effect.Effect<RunningTunnel, TunnelProcessError, Scope>
-}>()("tunnel-sdk/TunnelProcess") {
+}>()("tunnels/TunnelProcess") {
   // Depends on ChildProcessSpawner (and CloudflaredBinary for the path)
   static readonly layer: Layer.Layer<TunnelProcessService, never, ChildProcessSpawner | CloudflaredBinary> = ...
 }
@@ -1239,7 +1239,7 @@ export class CloudflareApiConfig extends Schema.Class<CloudflareApiConfig>("Clou
   }),
 }) {}
 
-export class CloudflareApi extends ServiceMap.Service<...>()("tunnel-sdk/CloudflareApi") {
+export class CloudflareApi extends ServiceMap.Service<...>()("tunnels/CloudflareApi") {
   // Explicit config (programmatic usage)
   static layer(config: CloudflareApiConfig): Layer.Layer<CloudflareApi, never, HttpClient>
 
@@ -1387,4 +1387,4 @@ tunnel management SDK.
 14. **`effect/index.ts`** — Public exports
 15. **`index.ts`** — Async/await wrapper using ManagedRuntime
 16. **Tests** — Port existing tests to `@effect/vitest` with `it.effect`
-17. **`cft` integration** — Wire LiveLayer to real SDK services
+17. **`tunnels` integration** — Wire LiveLayer to real SDK services

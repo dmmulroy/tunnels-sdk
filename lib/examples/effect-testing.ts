@@ -1,7 +1,7 @@
 /**
  * Testing Effect services with the TestLayer.
  *
- * Shows how to test code that uses tunnel-sdk/effect services
+ * Shows how to test code that uses tunnels/effect services
  * by providing a TestLayer with stubbed implementations.
  * You can override individual services for precise control.
  */
@@ -12,7 +12,7 @@ import {
   TunnelInfo,
   VNet,
   TestLayer,
-} from "tunnel-sdk/effect"
+} from "tunnels/effect"
 
 // Your application code — depends on TunnelOperations
 const createAndListTunnels = Effect.gen(function* () {

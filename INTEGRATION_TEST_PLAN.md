@@ -47,7 +47,7 @@ The current test suite (198 tests) mocks all external boundaries — HTTP calls,
 | **Error mapping** | Delete nonexistent tunnel → `TunnelNotFoundError`. Use wrong account ID → `TunnelApiError` with status code |
 | **Rate limiting / retry** | Verify transient 429s are retried (hard to trigger deterministically — may need a mock proxy) |
 
-**Cleanup:** Each test cleans up after itself. Use a naming prefix (e.g., `cft-test-*`) and a global teardown that deletes anything matching the prefix.
+**Cleanup:** Each test cleans up after itself. Use a naming prefix (e.g., `tunnels-test-*`) and a global teardown that deletes anything matching the prefix.
 
 **Setup:** 
 ```bash
@@ -70,7 +70,7 @@ pnpm test:integration:api
 | **Named tunnel full lifecycle** | `create("e2e-test", { ingress: [...], dns: { auto: true } })` → run tunnel → `fetch("https://e2e-test.example.com")` returns expected body → stop → delete with DNS cleanup |
 | **Multi-service ingress** | Create tunnel with 2 hostnames routing to 2 local servers → verify both respond correctly |
 | **TunnelClient wrapper roundtrip** | Use the `TunnelClient` class (not Effect API) to do full CRUD + verify it works |
-| **Config validation → deploy** | `parseConfigFromFile("cft.yaml")` → create tunnel from validated config → verify it runs |
+| **Config validation → deploy** | `parseConfigFromFile("tunnels.yaml")` → create tunnel from validated config → verify it runs |
 | **Tunnel process events** | Run tunnel, verify `Connected` events fire, connectors populate, status becomes `healthy` |
 | **Tunnel reconnection** | Run tunnel, kill one connector, verify `Disconnected` + `Reconnecting` events fire, status transitions |
 | **Graceful shutdown** | Run tunnel, close scope, verify `exitCode` resolves with 0 |
@@ -88,22 +88,22 @@ pnpm test:e2e
 ---
 
 ### Tier 4: CLI E2E
-**Goal:** Verify the `cft` CLI binary works as a user would invoke it.
+**Goal:** Verify the `tunnels` CLI binary works as a user would invoke it.
 
 | Test | What it proves |
 |------|---------------|
-| **`cft --version`** | Prints version, exits 0 |
-| **`cft --help`** | Lists all subcommands |
-| **`cft expose 3000`** | Prints URL, stays alive, Ctrl+C exits 0 |
-| **`cft expose 3000 --hostname app.example.com`** | Creates named tunnel, prints URL |
-| **`cft tunnel list --json`** | Valid JSON array output |
-| **`cft tunnel create test-cli`** | Creates tunnel, prints confirmation |
-| **`cft tunnel delete test-cli --force`** | Deletes, prints confirmation |
-| **`cft config validate`** | Validates cft.yaml, prints result |
+| **`tunnels --version`** | Prints version, exits 0 |
+| **`tunnels --help`** | Lists all subcommands |
+| **`tunnels expose 3000`** | Prints URL, stays alive, Ctrl+C exits 0 |
+| **`tunnels expose 3000 --hostname app.example.com`** | Creates named tunnel, prints URL |
+| **`tunnels tunnel list --json`** | Valid JSON array output |
+| **`tunnels tunnel create test-cli`** | Creates tunnel, prints confirmation |
+| **`tunnels tunnel delete test-cli --force`** | Deletes, prints confirmation |
+| **`tunnels config validate`** | Validates tunnels.yaml, prints result |
 | **Exit codes** | Invalid token → exit 2. Bad input → exit 1. Network error → exit 3 |
 | **`--no-interactive` mode** | No prompts, fails fast with missing required args |
 
-**Implementation:** Shell script or Node test harness that spawns `cft` as a child process, captures stdout/stderr/exit code.
+**Implementation:** Shell script or Node test harness that spawns `tunnels` as a child process, captures stdout/stderr/exit code.
 
 ---
 
@@ -111,7 +111,7 @@ pnpm test:e2e
 
 ### Test File Layout
 ```
-packages/tunnel-sdk/
+packages/tunnels/
   src/
     test-fixtures/
       fake-cloudflared.sh          # ← already exists
@@ -133,7 +133,7 @@ packages/tunnel-sdk/
       tunnel-events.test.ts        # Tier 3: process events
       wrapper-client.test.ts       # Tier 3: TunnelClient class
 
-packages/cft/
+packages/cli/
   test/
     e2e/
       cli-basic.test.ts            # Tier 4: version, help
@@ -223,10 +223,10 @@ e2e:
   - `Account:Access: Apps and Policies:Edit` (for route tests)
 
 ### Cleanup & Isolation
-- All test resources use prefix: `cft-integ-{testId}-`
-- Each test generates a unique ID (e.g., `cft-integ-a1b2c3-my-tunnel`)
+- All test resources use prefix: `tunnels-integ-{testId}-`
+- Each test generates a unique ID (e.g., `tunnels-integ-a1b2c3-my-tunnel`)
 - `afterAll` in each file cleans up resources matching the prefix
-- Global teardown script: `scripts/cleanup-test-resources.ts` — deletes all `cft-integ-*` tunnels, DNS records, routes, vnets
+- Global teardown script: `scripts/cleanup-test-resources.ts` — deletes all `tunnels-integ-*` tunnels, DNS records, routes, vnets
 - Tests run serially to avoid race conditions on shared account resources
 
 ---

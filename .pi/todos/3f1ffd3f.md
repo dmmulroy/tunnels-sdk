@@ -11,7 +11,7 @@
 
 ## Goal
 
-Implement the `CloudflareApi` service — the authenticated HTTP client for the Cloudflare API. This is the core dependency that every other service builds on. It replaces `packages/tunnel-sdk/src/api/client.ts` and `packages/tunnel-sdk/src/api/interfaces.ts`.
+Implement the `CloudflareApi` service — the authenticated HTTP client for the Cloudflare API. This is the core dependency that every other service builds on. It replaces `packages/tunnels/src/api/client.ts` and `packages/tunnels/src/api/interfaces.ts`.
 
 ## Context
 
@@ -26,7 +26,7 @@ The Effect version uses `HttpClient` from `effect/unstable/http` which gives us 
 
 ## What to create
 
-### File: `packages/tunnel-sdk/src/effect/services/CloudflareApi.ts`
+### File: `packages/tunnels/src/effect/services/CloudflareApi.ts`
 
 ```ts
 import { Config, Effect, Layer, Redacted, Schema, ServiceMap, Schedule, Stream } from "effect"
@@ -58,7 +58,7 @@ export class CloudflareApi extends ServiceMap.Service<CloudflareApi, {
   accountPath(path: string): string
   zonePath(zoneId: string, path: string): string
 }>()(
-  "tunnel-sdk/CloudflareApi"
+  "tunnels/CloudflareApi"
 )
 ```
 
@@ -83,7 +83,7 @@ export class CloudflareApi extends ServiceMap.Service<CloudflareApi, {
 - `static layerLive(config: CloudflareApiConfig)` — self-contained, provides `FetchHttpClient.layer`
 - `static layerFromEnv` — reads `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_BASE_URL` via `Config`
 
-### Test: `packages/tunnel-sdk/src/effect/services/CloudflareApi.test.ts`
+### Test: `packages/tunnels/src/effect/services/CloudflareApi.test.ts`
 
 Test through the service interface. Mock `HttpClient` at the boundary — provide a test layer instead of `FetchHttpClient.layer`.
 
@@ -103,10 +103,10 @@ Key test behaviors:
 
 ## Files to read first
 
-- `packages/tunnel-sdk/src/api/client.ts` — current implementation (source of truth for behavior)
-- `packages/tunnel-sdk/src/api/interfaces.ts` — current interface
-- `packages/tunnel-sdk/src/api/client.test.ts` — existing tests to port
-- `packages/tunnel-sdk/src/effect/errors.ts` — error types this service uses
+- `packages/tunnels/src/api/client.ts` — current implementation (source of truth for behavior)
+- `packages/tunnels/src/api/interfaces.ts` — current interface
+- `packages/tunnels/src/api/client.test.ts` — existing tests to port
+- `packages/tunnels/src/effect/errors.ts` — error types this service uses
 - `.dependencies/effect-smol/ai-docs/src/50_http-client/10_basics.ts` — HttpClient patterns
 - `.dependencies/effect-smol/LLMS.md` — "Writing Effect services" section, ServiceMap.Service pattern
 

@@ -1,4 +1,4 @@
-# `cft` — A Modern CLI for Cloudflare Tunnels
+# `tunnels` — A Modern CLI for Cloudflare Tunnels
 
 Design principles stolen from the best: `gh` (noun-verb), `fly` (deploy-first), `railway` (interactive-first), `wrangler` (config-as-code).
 
@@ -20,27 +20,27 @@ Design principles stolen from the best: `gh` (noun-verb), `fly` (deploy-first), 
 
 ## Command Reference
 
-### `cft expose` — The One-Liner
+### `tunnels expose` — The One-Liner
 
 The ngrok killer. Zero config, instant tunnel.
 
 ```bash
 # Anonymous quick tunnel
-cft expose 3000
+tunnels expose 3000
 # ⚡ Tunnel live → https://abc123.trycloudflare.com → localhost:3000
 
 # With a custom domain (requires auth)
-cft expose 3000 --hostname app.example.com
+tunnels expose 3000 --hostname app.example.com
 # ⚡ Tunnel live → https://app.example.com → localhost:3000
 
 # Multiple services in one shot
-cft expose 3000 8080:admin.example.com 9090:api.example.com
+tunnels expose 3000 8080:admin.example.com 9090:api.example.com
 
 # Expose a non-HTTP service
-cft expose 22 --protocol ssh --hostname ssh.example.com
+tunnels expose 22 --protocol ssh --hostname ssh.example.com
 
 # Expose with access control
-cft expose 3000 --hostname app.example.com --access-policy email:*@company.com
+tunnels expose 3000 --hostname app.example.com --access-policy email:*@company.com
 ```
 
 **Behavior:**
@@ -50,222 +50,222 @@ cft expose 3000 --hostname app.example.com --access-policy email:*@company.com
 
 ---
 
-### `cft tunnel` — Named Tunnel Management
+### `tunnels tunnel` — Named Tunnel Management
 
 ```bash
 # Interactive creation — prompts for everything you don't specify
-cft tunnel create
+tunnels tunnel create
 # ? Tunnel name: my-app
 # ? Service URL: http://localhost:3000
 # ? Hostname: app.example.com
 # ? Create DNS record? Yes
 # ✓ Tunnel "my-app" created (id: c1744f8b...)
 # ✓ DNS CNAME app.example.com → c1744f8b.cfargotunnel.com
-# Run with: cft tunnel run my-app
+# Run with: tunnels tunnel run my-app
 
 # Fully non-interactive
-cft tunnel create my-app \
+tunnels tunnel create my-app \
   --service http://localhost:3000 \
   --hostname app.example.com \
   --dns
 
 # List tunnels
-cft tunnel list
+tunnels tunnel list
 # NAME      STATUS    CONNECTIONS  CREATED
 # my-app    healthy   4            2025-02-18 22:41:43
 # staging   inactive  0            2025-01-10 14:22:01
 
-cft tunnel list --json
+tunnels tunnel list --json
 # [{"id":"c1744f8b...","name":"my-app","status":"healthy",...}]
 
 # Inspect a tunnel
-cft tunnel info my-app
-cft tunnel info my-app --json
+tunnels tunnel info my-app
+tunnels tunnel info my-app --json
 
 # Run a tunnel
-cft tunnel run my-app
-cft tunnel run my-app --config ./cft.yaml
+tunnels tunnel run my-app
+tunnels tunnel run my-app --config ./tunnels.yaml
 
 # Stop a tunnel
-cft tunnel stop my-app
+tunnels tunnel stop my-app
 
 # Delete a tunnel
-cft tunnel delete my-app
-cft tunnel delete my-app --force  # even if connections are active
+tunnels tunnel delete my-app
+tunnels tunnel delete my-app --force  # even if connections are active
 
 # Stream logs
-cft tunnel logs my-app
-cft tunnel logs my-app --json     # structured log lines
-cft tunnel logs my-app --level error --since 5m
+tunnels tunnel logs my-app
+tunnels tunnel logs my-app --json     # structured log lines
+tunnels tunnel logs my-app --level error --since 5m
 
 # Get the tunnel token (for running on other machines)
-cft tunnel token my-app
+tunnels tunnel token my-app
 ```
 
 ---
 
-### `cft ingress` — Ingress Rule Management
+### `tunnels ingress` — Ingress Rule Management
 
 ```bash
 # Add a route
-cft ingress add app.example.com http://localhost:3000
-cft ingress add api.example.com http://localhost:8080 --tunnel my-app
+tunnels ingress add app.example.com http://localhost:3000
+tunnels ingress add api.example.com http://localhost:8080 --tunnel my-app
 
 # Add with origin settings
-cft ingress add app.example.com http://localhost:3000 \
+tunnels ingress add app.example.com http://localhost:3000 \
   --connect-timeout 60s \
   --no-tls-verify
 
 # List rules
-cft ingress list --tunnel my-app
+tunnels ingress list --tunnel my-app
 # HOSTNAME           SERVICE                  ORIGIN SETTINGS
 # app.example.com    http://localhost:3000     connectTimeout=30s
 # api.example.com    http://localhost:8080     (defaults)
 # *                  http_status:404           (catch-all)
 
 # Remove a route
-cft ingress remove api.example.com --tunnel my-app
+tunnels ingress remove api.example.com --tunnel my-app
 
-# The catch-all is auto-managed — if you don't have one, cft adds
+# The catch-all is auto-managed — if you don't have one, tunnels adds
 # http_status:404 and warns you. No more silent 502s.
 ```
 
 ---
 
-### `cft route` — Private Network Routes
+### `tunnels route` — Private Network Routes
 
 ```bash
 # Add a route
-cft route add 172.16.0.0/16 --tunnel my-app
-cft route add 10.0.0.0/8 --tunnel my-app --vnet production
+tunnels route add 172.16.0.0/16 --tunnel my-app
+tunnels route add 10.0.0.0/8 --tunnel my-app --vnet production
 
 # List routes
-cft route list
-cft route list --tunnel my-app
+tunnels route list
+tunnels route list --tunnel my-app
 
 # Check which route handles an IP
-cft route check 172.16.5.42
+tunnels route check 172.16.5.42
 # ✓ 172.16.5.42 → tunnel "my-app" via route 172.16.0.0/16
 
 # Remove a route
-cft route remove 172.16.0.0/16
+tunnels route remove 172.16.0.0/16
 ```
 
 ---
 
-### `cft vnet` — Virtual Network Management
+### `tunnels vnet` — Virtual Network Management
 
 ```bash
-cft vnet create production
-cft vnet create staging --default
-cft vnet list
-cft vnet delete staging
+tunnels vnet create production
+tunnels vnet create staging --default
+tunnels vnet list
+tunnels vnet delete staging
 ```
 
 ---
 
-### `cft dns` — DNS Record Management
+### `tunnels dns` — DNS Record Management
 
 ```bash
 # Auto-create CNAME for a tunnel
-cft dns create app.example.com --tunnel my-app
+tunnels dns create app.example.com --tunnel my-app
 # ✓ CNAME app.example.com → c1744f8b.cfargotunnel.com
 
 # List DNS records pointing to tunnels
-cft dns list
+tunnels dns list
 
 # Remove
-cft dns remove app.example.com
+tunnels dns remove app.example.com
 ```
 
 ---
 
-### `cft config` — Config File Management
+### `tunnels config` — Config File Management
 
 ```bash
 # Validate config
-cft config validate
+tunnels config validate
 # ✓ Config valid. 2 ingress rules, catch-all will be auto-added.
 
-cft config validate --strict
+tunnels config validate --strict
 # ✗ Missing explicit catch-all rule. Add { service: "http_status:404" }
 
 # Diff what would change vs remote
-cft config diff
+tunnels config diff
 # ~ ingress[0].hostname: app.example.com (unchanged)
 # + ingress[1].hostname: api.example.com (new)
 # - ingress[2].hostname: old.example.com (removed)
 
 # Push config to Cloudflare (remote-managed tunnels)
-cft config push
-cft config push --dry-run
+tunnels config push
+tunnels config push --dry-run
 
 # Pull current remote config to local file
-cft config pull
-cft config pull --output cft.yaml
+tunnels config pull
+tunnels config pull --output tunnels.yaml
 
 # Initialize a new config file interactively
-cft config init
+tunnels config init
 ```
 
 ---
 
-### `cft auth` — Authentication
+### `tunnels auth` — Authentication
 
 ```bash
 # Browser flow (existing behavior)
-cft auth login
+tunnels auth login
 
 # Headless / CI — token-based
-cft auth login --token $CF_API_TOKEN
+tunnels auth login --token $CF_API_TOKEN
 
 # Service token for automated systems
-cft auth login --service-token --client-id $ID --client-secret $SECRET
+tunnels auth login --service-token --client-id $ID --client-secret $SECRET
 
 # Check auth status
-cft auth status
+tunnels auth status
 # ✓ Authenticated as dillon@example.com
 # Account: My Account (699d98642c564d2e855e9661899b7252)
 # Token expires: 2025-12-31
 
 # Logout
-cft auth logout
+tunnels auth logout
 ```
 
 ---
 
-### `cft dev` — Development Mode
+### `tunnels dev` — Development Mode
 
 ```bash
 # Watch mode — restarts tunnel when config changes
-cft dev --port 3000
+tunnels dev --port 3000
 # ⚡ Tunnel live → https://abc123.trycloudflare.com → localhost:3000
-# 👀 Watching cft.yaml for changes...
+# 👀 Watching tunnels.yaml for changes...
 
-# Wrap your dev server — cft detects the port
-cft dev -- npm run dev
+# Wrap your dev server — tunnels detects the port
+tunnels dev -- npm run dev
 # Starting npm run dev...
 # Detected port 5173
 # ⚡ Tunnel live → https://abc123.trycloudflare.com → localhost:5173
 
 # With a named tunnel for stable URLs
-cft dev --tunnel my-app --port 3000
+tunnels dev --tunnel my-app --port 3000
 
 # Auto-reload on config change
-cft dev --watch
+tunnels dev --watch
 ```
 
 ---
 
-### `cft status` — Quick Health Check
+### `tunnels status` — Quick Health Check
 
 ```bash
-cft status
+tunnels status
 # TUNNEL    STATUS    CONNS  UPTIME     COLO
 # my-app    healthy   4/4    2d 14h     bos01, phl01
 # staging   degraded  2/4    45m        iad01
 
-cft status my-app --json
+tunnels status my-app --json
 ```
 
 ---
@@ -279,7 +279,7 @@ Available on every command:
 --quiet             Suppress non-essential output
 --verbose           Show debug-level output
 --account-id ID     Override Cloudflare account
---config PATH       Path to config file (default: ./cft.yaml)
+--config PATH       Path to config file (default: ./tunnels.yaml)
 --format FORMAT     Output format: table (default), json, csv
 --no-color          Disable colored output
 --no-interactive    Disable all prompts (fail instead of asking)
@@ -300,10 +300,10 @@ Available on every command:
 
 ---
 
-## Config File: `cft.yaml`
+## Config File: `tunnels.yaml`
 
 ```yaml
-# cft.yaml — validated on every run, errors are actionable
+# tunnels.yaml — validated on every run, errors are actionable
 tunnel: my-app
 
 ingress:
@@ -325,8 +325,8 @@ ingress:
   # - service: http_status:404
 
 dns:
-  auto: true            # auto-create/update CNAME records on `cft tunnel run`
-  cleanup: true         # remove DNS records on `cft tunnel delete`
+  auto: true            # auto-create/update CNAME records on `tunnels tunnel run`
+  cleanup: true         # remove DNS records on `tunnels tunnel delete`
 
 routes:
   - network: 172.16.0.0/16
@@ -353,30 +353,30 @@ access:
 ## Shell Completions
 
 ```bash
-cft completion bash >> ~/.bashrc
-cft completion zsh >> ~/.zshrc
-cft completion fish >> ~/.config/fish/completions/cft.fish
-cft completion powershell >> $PROFILE
+tunnels completion bash >> ~/.bashrc
+tunnels completion zsh >> ~/.zshrc
+tunnels completion fish >> ~/.config/fish/completions/tunnels.fish
+tunnels completion powershell >> $PROFILE
 ```
 
 Completions are context-aware:
-- `cft tunnel run <TAB>` → lists tunnel names
-- `cft route add <CIDR> --tunnel <TAB>` → lists tunnel names
-- `cft ingress add <TAB>` → suggests hostnames from your zones
+- `tunnels tunnel run <TAB>` → lists tunnel names
+- `tunnels route add <CIDR> --tunnel <TAB>` → lists tunnel names
+- `tunnels ingress add <TAB>` → suggests hostnames from your zones
 
 ---
 
 ## Comparison to `cloudflared`
 
-| Capability | `cloudflared` | `cft` |
+| Capability | `cloudflared` | `tunnels` |
 |------------|--------------|-------|
-| One-liner expose | `cloudflared tunnel --url localhost:3000` (anonymous only) | `cft expose 3000 --hostname app.example.com` |
-| Create + configure + DNS + run | 4+ separate commands | `cft expose` or `cft tunnel create --dns` |
+| One-liner expose | `cloudflared tunnel --url localhost:3000` (anonymous only) | `tunnels expose 3000 --hostname app.example.com` |
+| Create + configure + DNS + run | 4+ separate commands | `tunnels expose` or `tunnels tunnel create --dns` |
 | Structured output | ❌ Log-style text | `--json` on everything |
-| Config validation | ❌ Fails at runtime | `cft config validate` with line numbers |
-| Config diff | ❌ | `cft config diff` |
+| Config validation | ❌ Fails at runtime | `tunnels config validate` with line numbers |
+| Config diff | ❌ | `tunnels config diff` |
 | Interactive mode | ❌ | Prompts with flag fallbacks |
-| Dev mode with watch | ❌ | `cft dev --watch` |
+| Dev mode with watch | ❌ | `tunnels dev --watch` |
 | CI/headless auth | ❌ Browser only | `--token`, `--service-token` |
 | Shell completions | ❌ | Built-in, context-aware |
 | Exit codes | Generic | Meaningful per error class |

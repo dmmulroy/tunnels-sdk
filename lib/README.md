@@ -1,4 +1,4 @@
-# `tunnel-sdk` — TypeScript SDK
+# `tunnels` — TypeScript SDK
 
 A TypeScript library for Cloudflare Tunnels with top-notch DX. Manages the full tunnel lifecycle — API calls, binary management, process lifecycle, streaming logs — in one package.
 
@@ -31,7 +31,7 @@ Gives you both. API management + process management + config validation + stream
 ## Installation
 
 ```bash
-npm install tunnel-sdk
+npm install tunnels
 ```
 
 No separate `cloudflared` installation required. The binary is auto-downloaded, platform-matched, and version-locked on first use.
@@ -43,7 +43,7 @@ No separate `cloudflared` installation required. The binary is auto-downloaded, 
 ### Quick Expose (Zero Config)
 
 ```ts
-import { expose } from "tunnel-sdk"
+import { expose } from "tunnels"
 
 // One-liner: expose a port, get a URL
 const tunnel = await expose(3000)
@@ -61,7 +61,7 @@ await tunnel.close()
 ### Quick Expose with Explicit Resource Management
 
 ```ts
-import { expose } from "tunnel-sdk"
+import { expose } from "tunnels"
 
 // `using` ensures cleanup even if an exception is thrown
 await using tunnel = await expose(3000)
@@ -74,7 +74,7 @@ console.log(tunnel.url)
 ### `TunnelClient` — Full API Access
 
 ```ts
-import { TunnelClient } from "tunnel-sdk"
+import { TunnelClient } from "tunnels"
 
 const client = new TunnelClient({
   accountId: process.env.CF_ACCOUNT_ID,
@@ -248,11 +248,11 @@ await client.dispose()
 
 ### Effect SDK (Advanced)
 
-For full power, use the Effect SDK directly via `tunnel-sdk/effect`:
+For full power, use the Effect SDK directly via `tunnels/effect`:
 
 ```ts
 import { Effect, Redacted, Stream } from "effect"
-import { TunnelOperations, DnsManager, LiveLayer, CloudflareApiConfig } from "tunnel-sdk/effect"
+import { TunnelOperations, DnsManager, LiveLayer, CloudflareApiConfig } from "tunnels/effect"
 
 const config = new CloudflareApiConfig({
   accountId: process.env.CF_ACCOUNT_ID!,
@@ -289,7 +289,7 @@ See `lib/examples/effect-basic.ts` and `lib/examples/effect-testing.ts` for more
 
 ```ts
 import { Effect, Exit } from "effect"
-import { parseConfig, parseConfigFromYaml, parseConfigFromFile } from "tunnel-sdk"
+import { parseConfig, parseConfigFromYaml, parseConfigFromFile } from "tunnels"
 
 // Validate a config object
 const result = Effect.runSyncExit(
@@ -317,7 +317,7 @@ const config = Effect.runSync(
 
 // Load from YAML file (async)
 const fileConfig = await Effect.runPromise(
-  parseConfigFromFile("./cft.yaml"),
+  parseConfigFromFile("./tunnels.yaml"),
 )
 ```
 
@@ -338,10 +338,10 @@ const fileConfig = await Effect.runPromise(
 The library auto-manages the `cloudflared` binary. You never need to think about it.
 
 ```ts
-import { cloudflared } from "tunnel-sdk/bin"
+import { cloudflared } from "tunnels/bin"
 
 // Binary is auto-downloaded on first use
-// Stored in node_modules/.cache/tunnel-sdk/bin/
+// Stored in node_modules/.cache/tunnels/bin/
 // Version-locked to the library version
 
 // Manual control if you need it
@@ -554,7 +554,7 @@ interface TunnelConfig {
 
 ## Comparison
 
-| | Official SDK | Community `cloudflared` | `tunnel-sdk` |
+| | Official SDK | Community `cloudflared` | `tunnels` |
 |---|---|---|---|
 | API management | ✅ (verbose, deeply nested) | ❌ | ✅ (ergonomic, flat) |
 | Binary management | ❌ | ✅ (manual) | ✅ (invisible, version-locked) |

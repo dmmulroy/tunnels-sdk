@@ -1,5 +1,5 @@
 import { Effect, Exit } from "effect"
-import { parseConfig, parseConfigFromYaml, parseConfigFromFile } from "tunnel-sdk"
+import { parseConfig, parseConfigFromYaml, parseConfigFromFile } from "tunnels"
 
 // --- Validate a config object ---
 
@@ -38,7 +38,7 @@ if (Exit.isSuccess(yamlResult)) {
 // --- Parse from a YAML file (async) ---
 
 const fileResult = await Effect.runPromiseExit(
-  parseConfigFromFile("./cft.yaml"),
+  parseConfigFromFile("./tunnels.yaml"),
 )
 
 if (Exit.isSuccess(fileResult)) {

@@ -1,4 +1,5 @@
 {
+  "name": "tunnels-monorepo",
   "private": true,
   "scripts": {
     "build": "pnpm -r build",

@@ -1,4 +1,4 @@
-import { TunnelClient } from "tunnel-sdk"
+import { TunnelClient } from "tunnels"
 import { Octokit } from "@octokit/rest"
 
 const client = new TunnelClient({

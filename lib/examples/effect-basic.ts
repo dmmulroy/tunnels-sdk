@@ -12,7 +12,7 @@ import {
   DnsManager,
   CloudflareApiConfig,
   LiveLayer,
-} from "tunnel-sdk/effect"
+} from "tunnels/effect"
 
 const config = new CloudflareApiConfig({
   accountId: process.env.CF_ACCOUNT_ID!,

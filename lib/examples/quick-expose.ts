@@ -1,4 +1,4 @@
-import { expose } from "tunnel-sdk"
+import { expose } from "tunnels"
 
 // Anonymous quick tunnel — no auth required.
 // `using` ensures cleanup when the scope exits.

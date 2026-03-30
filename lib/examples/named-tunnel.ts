@@ -1,4 +1,4 @@
-import { TunnelClient } from "tunnel-sdk"
+import { TunnelClient } from "tunnels"
 
 const client = new TunnelClient({
   accountId: process.env.CF_ACCOUNT_ID!,
