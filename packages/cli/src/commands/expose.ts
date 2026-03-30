@@ -1,6 +1,7 @@
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/unstable/cli"
 import { QuickTunnelService, TunnelApiService, IngressService, DnsService } from "../services.js"
+import { printResult } from "../output.js"
 
 export const expose = Command.make("expose", {
   port: Argument.integer("port").pipe(
@@ -37,7 +38,10 @@ const quickTunnel = (port: number) =>
   Effect.gen(function* () {
     const svc = yield* QuickTunnelService
     const result = yield* svc.expose(port)
-    yield* Console.log(`⚡ Tunnel live → ${result.url} → localhost:${port}`)
+    yield* printResult(
+      { url: result.url, port },
+      `⚡ Tunnel live → ${result.url} → localhost:${port}`,
+    )
   })
 
 const namedTunnel = (port: number, hostname: string, protocol: string) =>
@@ -57,6 +61,8 @@ const namedTunnel = (port: number, hostname: string, protocol: string) =>
     // 3. Create DNS CNAME
     yield* dnsSvc.create(hostname, tunnel.name)
 
-    yield* Console.log(`⚡ Tunnel live → https://${hostname} → localhost:${port}`)
-    yield* Console.log(`  Tunnel: ${tunnel.name} (${tunnel.id})`)
+    yield* printResult(
+      { url: `https://${hostname}`, port, tunnel: tunnel.name, tunnelId: tunnel.id },
+      `⚡ Tunnel live → https://${hostname} → localhost:${port}\n  Tunnel: ${tunnel.name} (${tunnel.id})`,
+    )
   })

@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect"
 import { Argument, Command } from "effect/unstable/cli"
 import { IngressService, type IngressRuleInfo } from "../services.js"
-import { printData, type Column } from "../output.js"
+import { printData, printResult, type Column } from "../output.js"
 
 const ingressColumns: ReadonlyArray<Column<IngressRuleInfo>> = [
   { header: "HOSTNAME", value: (r) => r.hostname },
@@ -19,7 +19,10 @@ const add = Command.make("add", {
   Effect.gen(function* () {
     const api = yield* IngressService
     yield* api.add(config.hostname, config.service)
-    yield* Console.log(`✓ Ingress rule added: ${config.hostname} → ${config.service}`)
+    yield* printResult(
+      { hostname: config.hostname, service: config.service },
+      `✓ Ingress rule added: ${config.hostname} → ${config.service}`,
+    )
   })
 ).pipe(Command.withDescription("Add an ingress rule"))
 
@@ -39,7 +42,10 @@ const remove = Command.make("remove", {
   Effect.gen(function* () {
     const api = yield* IngressService
     yield* api.remove(config.hostname)
-    yield* Console.log(`✓ Ingress rule removed: ${config.hostname}`)
+    yield* printResult(
+      { removed: config.hostname },
+      `✓ Ingress rule removed: ${config.hostname}`,
+    )
   })
 ).pipe(Command.withDescription("Remove an ingress rule"))
 

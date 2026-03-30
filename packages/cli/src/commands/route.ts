@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect"
 import { Argument, Command, Flag } from "effect/unstable/cli"
 import { RouteService, type RouteInfo } from "../services.js"
-import { printData, type Column } from "../output.js"
+import { printData, printResult, type Column } from "../output.js"
 
 const routeColumns: ReadonlyArray<Column<RouteInfo>> = [
   { header: "NETWORK", value: (r) => r.network },
@@ -19,7 +19,10 @@ const add = Command.make("add", {
   Effect.gen(function* () {
     const api = yield* RouteService
     yield* api.add(config.network, config.tunnel)
-    yield* Console.log(`✓ Route added: ${config.network} → ${config.tunnel}`)
+    yield* printResult(
+      { network: config.network, tunnel: config.tunnel },
+      `✓ Route added: ${config.network} → ${config.tunnel}`,
+    )
   })
 ).pipe(Command.withDescription("Add a private network route"))
 
@@ -39,7 +42,10 @@ const remove = Command.make("remove", {
   Effect.gen(function* () {
     const api = yield* RouteService
     yield* api.remove(config.network)
-    yield* Console.log(`✓ Route removed: ${config.network}`)
+    yield* printResult(
+      { removed: config.network },
+      `✓ Route removed: ${config.network}`,
+    )
   })
 ).pipe(Command.withDescription("Remove a route"))
 

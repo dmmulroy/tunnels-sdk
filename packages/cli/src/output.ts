@@ -72,3 +72,39 @@ export const printData = <T>(
       yield* Console.log(formatTable(rows, columns))
     }
   })
+
+/**
+ * Print a single object — JSON or key/value pairs.
+ */
+export const printSingle = (
+  data: Record<string, unknown>,
+  fields: ReadonlyArray<{ label: string; key: string }>,
+): Effect.Effect<void, never, OutputContext> =>
+  Effect.gen(function* () {
+    const ctx = yield* OutputContext
+    if (ctx.json || ctx.format === "json") {
+      yield* Console.log(formatJson(data))
+    } else {
+      const maxLabel = Math.max(...fields.map((f) => f.label.length))
+      const lines = fields.map(
+        (f) => `${f.label.padEnd(maxLabel)}  ${String(data[f.key] ?? "-")}`,
+      )
+      yield* Console.log(lines.join("\n"))
+    }
+  })
+
+/**
+ * Print a confirmation/result message — JSON or human text.
+ */
+export const printResult = (
+  data: Record<string, unknown>,
+  text: string,
+): Effect.Effect<void, never, OutputContext> =>
+  Effect.gen(function* () {
+    const ctx = yield* OutputContext
+    if (ctx.json || ctx.format === "json") {
+      yield* Console.log(formatJson(data))
+    } else {
+      yield* Console.log(text)
+    }
+  })

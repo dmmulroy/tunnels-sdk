@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect"
 import { Argument, Command, Flag } from "effect/unstable/cli"
 import { DnsService, type DnsRecordInfo } from "../services.js"
-import { printData, type Column } from "../output.js"
+import { printData, printResult, type Column } from "../output.js"
 
 const dnsColumns: ReadonlyArray<Column<DnsRecordInfo>> = [
   { header: "HOSTNAME", value: (r) => r.hostname },
@@ -19,7 +19,10 @@ const create = Command.make("create", {
   Effect.gen(function* () {
     const api = yield* DnsService
     yield* api.create(config.hostname, config.tunnel)
-    yield* Console.log(`✓ CNAME ${config.hostname} → ${config.tunnel}`)
+    yield* printResult(
+      { hostname: config.hostname, tunnel: config.tunnel, type: "CNAME" },
+      `✓ CNAME ${config.hostname} → ${config.tunnel}`,
+    )
   })
 ).pipe(Command.withDescription("Create a DNS CNAME record"))
 
@@ -39,7 +42,10 @@ const remove = Command.make("remove", {
   Effect.gen(function* () {
     const api = yield* DnsService
     yield* api.remove(config.hostname)
-    yield* Console.log(`✓ DNS record removed: ${config.hostname}`)
+    yield* printResult(
+      { removed: config.hostname },
+      `✓ DNS record removed: ${config.hostname}`,
+    )
   })
 ).pipe(Command.withDescription("Remove a DNS record"))
 

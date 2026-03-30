@@ -1,7 +1,7 @@
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/unstable/cli"
 import { TunnelApiService, type TunnelInfo } from "../services.js"
-import { printData, type Column } from "../output.js"
+import { printData, printResult, printSingle, type Column } from "../output.js"
 
 export const create = Command.make("create", {
   name: Argument.string("name").pipe(
@@ -14,7 +14,10 @@ export const create = Command.make("create", {
   Effect.gen(function* () {
     const api = yield* TunnelApiService
     const tunnel = yield* api.create(config.name, { dns: config.dns })
-    yield* Console.log(`✓ Tunnel "${tunnel.name}" created (id: ${tunnel.id})`)
+    yield* printResult(
+      { id: tunnel.id, name: tunnel.name, status: tunnel.status ?? "inactive" },
+      `✓ Tunnel "${tunnel.name}" created (id: ${tunnel.id})`,
+    )
   })
 ).pipe(
   Command.withDescription("Create a new named tunnel")
@@ -51,10 +54,15 @@ export const info = Command.make("info", {
   Effect.gen(function* () {
     const api = yield* TunnelApiService
     const t = yield* api.get(config.ref)
-    yield* Console.log(`Name:        ${t.name}`)
-    yield* Console.log(`ID:          ${t.id}`)
-    yield* Console.log(`Status:      ${t.status ?? "unknown"}`)
-    yield* Console.log(`Connections: ${t.connections ?? 0}`)
+    yield* printSingle(
+      { id: t.id, name: t.name, status: t.status ?? "unknown", connections: t.connections ?? 0 },
+      [
+        { label: "Name:", key: "name" },
+        { label: "ID:", key: "id" },
+        { label: "Status:", key: "status" },
+        { label: "Connections:", key: "connections" },
+      ],
+    )
   })
 ).pipe(
   Command.withDescription("Show tunnel details")
@@ -71,7 +79,10 @@ export const del = Command.make("delete", {
   Effect.gen(function* () {
     const api = yield* TunnelApiService
     yield* api.delete(config.ref, { force: config.force })
-    yield* Console.log(`✓ Tunnel "${config.ref}" deleted`)
+    yield* printResult(
+      { deleted: config.ref },
+      `✓ Tunnel "${config.ref}" deleted`,
+    )
   })
 ).pipe(
   Command.withDescription("Delete a tunnel")
@@ -129,7 +140,10 @@ export const token = Command.make("token", {
   Effect.gen(function* () {
     const api = yield* TunnelApiService
     const tok = yield* api.getToken(config.ref)
-    yield* Console.log(tok)
+    yield* printResult(
+      { token: tok },
+      tok,
+    )
   })
 ).pipe(
   Command.withDescription("Get the tunnel token")

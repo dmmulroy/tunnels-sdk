@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect"
 import { Argument, Command, Flag } from "effect/unstable/cli"
 import { VNetService, type VNetInfo } from "../services.js"
-import { printData, type Column } from "../output.js"
+import { printData, printResult, type Column } from "../output.js"
 
 const vnetColumns: ReadonlyArray<Column<VNetInfo>> = [
   { header: "NAME", value: (v) => v.name },
@@ -19,7 +19,10 @@ const create = Command.make("create", {
   Effect.gen(function* () {
     const api = yield* VNetService
     yield* api.create(config.name, { isDefault: config.isDefault })
-    yield* Console.log(`✓ Virtual network "${config.name}" created`)
+    yield* printResult(
+      { name: config.name, isDefault: config.isDefault },
+      `✓ Virtual network "${config.name}" created`,
+    )
   })
 ).pipe(Command.withDescription("Create a virtual network"))
 
@@ -39,7 +42,10 @@ const del = Command.make("delete", {
   Effect.gen(function* () {
     const api = yield* VNetService
     yield* api.delete(config.name)
-    yield* Console.log(`✓ Virtual network "${config.name}" deleted`)
+    yield* printResult(
+      { deleted: config.name },
+      `✓ Virtual network "${config.name}" deleted`,
+    )
   })
 ).pipe(Command.withDescription("Delete a virtual network"))
 

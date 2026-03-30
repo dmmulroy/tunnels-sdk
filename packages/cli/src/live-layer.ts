@@ -465,19 +465,70 @@ export const LiveLayer = (config: CloudflareApiConfig) => {
   )
 }
 
+// ---------------------------------------------------------------------------
+// UnauthenticatedLayer — every service fails with AuthError
+// Used when CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN are missing.
+// Allows --help / --version / --config to work without credentials.
+// ---------------------------------------------------------------------------
+
+const authRequired = CliError.AuthError({
+  message:
+    "Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN environment variables. " +
+    "Run `tunnels auth login` to configure.",
+})
+
+const authFail: Effect.Effect<never, CliError> = Effect.fail(authRequired)
+
+const UnauthenticatedLayer = Layer.mergeAll(
+  Layer.succeed(QuickTunnelService, {
+    expose: () => authFail as any,
+  }),
+  Layer.succeed(TunnelApiService, {
+    create: () => authFail as any,
+    list: () => authFail as any,
+    get: () => authFail as any,
+    delete: () => authFail as any,
+    run: () => authFail as any,
+    stop: () => authFail as any,
+    getLogs: () => authFail as any,
+    getToken: () => authFail as any,
+  }),
+  Layer.succeed(IngressService, {
+    add: () => authFail as any,
+    list: () => authFail as any,
+    remove: () => authFail as any,
+  }),
+  Layer.succeed(DnsService, {
+    create: () => authFail as any,
+    list: () => authFail as any,
+    remove: () => authFail as any,
+  }),
+  Layer.succeed(RouteService, {
+    add: () => authFail as any,
+    list: () => authFail as any,
+    remove: () => authFail as any,
+  }),
+  Layer.succeed(VNetService, {
+    create: () => authFail as any,
+    list: () => authFail as any,
+    delete: () => authFail as any,
+  }),
+  ConfigServiceStub,
+  AuthServiceStub,
+)
+
 /**
  * Create LiveLayer from environment variables.
  * Reads CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.
+ * Falls back to UnauthenticatedLayer when credentials are missing
+ * (allows --help / --version to work).
  */
 export const LiveLayerFromEnv = () => {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID
   const apiToken = process.env.CLOUDFLARE_API_TOKEN
 
   if (!accountId || !apiToken) {
-    throw new Error(
-      "Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN environment variables. " +
-      "Run `tunnels auth login` to configure.",
-    )
+    return UnauthenticatedLayer
   }
 
   return LiveLayer(

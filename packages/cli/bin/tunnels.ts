@@ -21,9 +21,11 @@ const outputCtx: OutputContext = {
   quiet: hasFlag("quiet") || argv.includes("-q"),
 }
 
+// Layer.unwrap defers layer construction — --help / --version
+// short-circuit before any service is resolved.
 const program = Command.run(tunnels, { version: "0.1.0" }).pipe(
   Effect.provideService(OutputContext, outputCtx),
-  Effect.provide(Layer.mergeAll(LiveLayerFromEnv(), NodeServices.layer)),
+  Effect.provide(Layer.mergeAll(Layer.unwrap(Effect.sync(LiveLayerFromEnv)), NodeServices.layer)),
   Effect.catch((error) => {
     if (typeof error === "object" && error !== null && "_tag" in error) {
       const tag = (error as { _tag: string })._tag
@@ -38,7 +40,7 @@ const program = Command.run(tunnels, { version: "0.1.0" }).pipe(
           : tag === "NetworkError" ? "Network error"
           : tag === "TunnelRuntimeError" ? "Tunnel error"
           : "Error"
-        return Console.error(`${prefix}: ${cftError.message}`).pipe(
+        return Console.error(`${prefix}: ${cliError.message}`).pipe(
           Effect.andThen(Effect.sync(() => process.exit(toExitCode(cliError))))
         )
       }
