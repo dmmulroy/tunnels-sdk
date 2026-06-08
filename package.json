@@ -2,6 +2,7 @@
   "name": "tunnels-monorepo",
   "private": true,
   "scripts": {
+    "start": "node scripts/serve-learning-site.mjs",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
