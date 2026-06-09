@@ -6,6 +6,6 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "clean": "pnpm -r clean"
+    "clean": "node scripts/clean-generated.mjs && pnpm -r clean"
   }
 }

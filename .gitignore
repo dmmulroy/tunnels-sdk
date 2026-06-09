@@ -6,3 +6,5 @@ dist/
 .dependencies/
 .env
 .env.local
+learning-site/
+repos/

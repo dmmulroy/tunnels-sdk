@@ -1,17 +1,18 @@
 import { defineConfig } from "tsdown"
 
 export default defineConfig({
-  entry: ["src/**/*.ts", "!src/**/*.test.ts", "!src/**/test-helpers.ts"],
+  entry: {
+    "bin/tunnels": "bin/tunnels.ts",
+  },
   format: "esm",
   platform: "node",
   target: "node18",
   fixedExtension: false,
-  unbundle: true,
-  root: "src",
-  dts: true,
+  dts: false,
   clean: true,
   sourcemap: true,
   deps: {
+    neverBundle: ["tunnels", "tunnels/effect", /^tunnels\//],
     skipNodeModulesBundle: true,
   },
 })

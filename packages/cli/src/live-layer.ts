@@ -169,7 +169,7 @@ export const TunnelApiServiceLive = Layer.effect(
             const scope = yield* Scope.make()
             const runningTunnel = yield* processSvc
               .run(token, { logLevel: opts?.logLevel })
-              .pipe(Effect.provideService(Scope.Scope, scope))
+              .pipe(Scope.provide(scope))
 
             const handle: RunningTunnelHandle = {
               tunnelId: tunnelInfo.id,

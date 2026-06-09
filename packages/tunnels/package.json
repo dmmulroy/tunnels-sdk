@@ -5,33 +5,21 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": {
-        "import": "./dist/index.d.mts",
-        "require": "./dist/index.d.cts"
-      },
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./effect": {
-      "types": {
-        "import": "./dist/effect/index.d.mts",
-        "require": "./dist/effect/index.d.cts"
-      },
-      "import": "./dist/effect/index.mjs",
-      "require": "./dist/effect/index.cjs"
+      "types": "./dist/effect/index.d.ts",
+      "import": "./dist/effect/index.js"
     },
     "./bin": {
-      "types": {
-        "import": "./dist/bin/index.d.mts",
-        "require": "./dist/bin/index.d.cts"
-      },
-      "import": "./dist/bin/index.mjs",
-      "require": "./dist/bin/index.cjs"
+      "types": "./dist/bin/index.d.ts",
+      "import": "./dist/bin/index.js"
     }
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist"
   ],
@@ -58,12 +46,12 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@effect/platform-node": "beta",
-    "effect": "beta",
+    "@effect/platform-node": "4.0.0-beta.42",
+    "effect": "4.0.0-beta.42",
     "yaml": "^2.7.1"
   },
   "devDependencies": {
-    "@effect/vitest": "beta",
+    "@effect/vitest": "4.0.0-beta.42",
     "@types/node": "^25.5.0",
     "tsdown": "^0.21.7",
     "typescript": "^5.8.2",
