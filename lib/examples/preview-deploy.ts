@@ -13,7 +13,6 @@ const hostname = `pr-${prNumber}.preview.example.com`
 // Create an ephemeral tunnel for this PR
 const tunnel = await client.tunnels.create(`preview-pr-${prNumber}`, {
   ingress: [{ hostname, service: "http://localhost:3000" }],
-  dns: { auto: true },
 })
 
 console.log(`Preview tunnel "${tunnel.name}" created (${tunnel.id})`)
@@ -31,7 +30,7 @@ console.log(`Preview live at https://${hostname}`)
 // Cleanup when done
 process.on("SIGINT", async () => {
   console.log("Cleaning up preview tunnel...")
-  await client.tunnels.delete(tunnel.id, { force: true, cleanupDns: true })
+  await client.tunnels.delete(tunnel.id, { force: true })
   await client.dispose()
   process.exit(0)
 })

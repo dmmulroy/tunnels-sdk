@@ -103,15 +103,29 @@ async function extractTgz(response: Response, destDir: string): Promise<void> {
 let currentVersion = PINNED_VERSION;
 const cacheDir = getCacheDir();
 
+/**
+ * Resolver and installer for the cached cloudflared binary used by the SDK.
+ */
 export const cloudflared = {
+  /**
+   * Filesystem path where the cloudflared binary is cached.
+   */
   get path(): string {
     return join(cacheDir, getBinaryName());
   },
 
+  /**
+   * Currently selected cloudflared version.
+   */
   get version(): string {
     return currentVersion;
   },
 
+  /**
+   * Checks whether the cached cloudflared binary exists and runs.
+   *
+   * @returns A Promise resolving to true when cloudflared is installed.
+   */
   async isInstalled(): Promise<boolean> {
     if (!existsSync(this.path)) return false;
 
@@ -123,6 +137,12 @@ export const cloudflared = {
     }
   },
 
+  /**
+   * Downloads and installs cloudflared into the local cache.
+   *
+   * @param options Optional install options, including the version to install.
+   * @returns A Promise that resolves when installation completes.
+   */
   async install(options?: InstallOptions): Promise<void> {
     const version = normalizeVersion(options?.version ?? currentVersion);
     const url = getDownloadUrl(version);
@@ -155,6 +175,11 @@ export const cloudflared = {
     currentVersion = version;
   },
 
+  /**
+   * Updates cloudflared to the latest GitHub release.
+   *
+   * @returns A Promise that resolves when the update completes.
+   */
   async update(): Promise<void> {
     const response = await fetch(
       "https://api.github.com/repos/cloudflare/cloudflared/releases/latest",
@@ -169,6 +194,11 @@ export const cloudflared = {
     await this.install({ version: normalizeVersion(data.tag_name) });
   },
 
+  /**
+   * Removes the cached cloudflared binary directory.
+   *
+   * @returns A Promise that resolves after cached files are removed.
+   */
   async remove(): Promise<void> {
     if (existsSync(cacheDir)) {
       await rm(cacheDir, { recursive: true, force: true });

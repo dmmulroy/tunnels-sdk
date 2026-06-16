@@ -41,15 +41,17 @@ function mockIngress(handlers: {
 }
 
 function mockDns(handlers: {
-  ensure?: (tunnelId: string, hostname: string) => Effect.Effect<void, any>
+  ensure?: (tunnelId: string, hostname: string, options?: { cleanup?: boolean; overwrite?: boolean }) => Effect.Effect<void, any>
   list?: (tunnelId: string) => Effect.Effect<any, any>
-  remove?: (tunnelId: string, hostname: string) => Effect.Effect<void, any>
+  remove?: (hostname: string) => Effect.Effect<void, any>
+  removeManaged?: (tunnelId: string) => Effect.Effect<void, any>
 } = {}) {
   return Layer.succeed(
     DnsManager,
     DnsManager.of({
       ensure: handlers.ensure ?? (() => Effect.succeed(void 0)),
       remove: handlers.remove ?? (() => Effect.succeed(void 0)),
+      removeManaged: handlers.removeManaged ?? (() => Effect.succeed(void 0)),
       list: handlers.list ?? (() => Effect.succeed([])),
     }),
   )
@@ -116,19 +118,86 @@ describe("TunnelOperations (Effect)", () => {
     )
   })
 
-  it.effect("create ensures DNS when auto is true", () => {
+  it.effect("create auto-ensures DNS for ingress hostnames by default", () => {
     let ensuredHostnames: string[] = []
     return Effect.gen(function* () {
       const ops = yield* TunnelOperations
       yield* ops.create("my-tunnel", {
         ingress: [new IngressRule({ hostname: "app.example.com", service: "http://localhost:3000" })],
-        dns: { auto: true },
       })
       assert.deepStrictEqual(ensuredHostnames, ["app.example.com"])
     }).pipe(
       Effect.provide(testLayer(
         { post: () => Effect.succeed(baseCfTunnel) },
         { dns: { ensure: (_tid, hostname) => { ensuredHostnames.push(hostname); return Effect.succeed(void 0) } } },
+      )),
+    )
+  })
+
+  it.effect("create treats dns true as automatic DNS with default cleanup", () => {
+    let ensureOptions: { cleanup?: boolean; overwrite?: boolean } | undefined
+    return Effect.gen(function* () {
+      const ops = yield* TunnelOperations
+      yield* ops.create("my-tunnel", {
+        ingress: [new IngressRule({ hostname: "app.example.com", service: "http://localhost:3000" })],
+        dns: true,
+      })
+      assert.deepStrictEqual(ensureOptions, { cleanup: true, overwrite: false })
+    }).pipe(
+      Effect.provide(testLayer(
+        { post: () => Effect.succeed(baseCfTunnel) },
+        { dns: { ensure: (_tid, _hostname, options) => { ensureOptions = options; return Effect.succeed(void 0) } } },
+      )),
+    )
+  })
+
+  it.effect("create skips DNS when dns is false", () => {
+    let ensuredHostnames: string[] = []
+    return Effect.gen(function* () {
+      const ops = yield* TunnelOperations
+      yield* ops.create("my-tunnel", {
+        ingress: [new IngressRule({ hostname: "app.example.com", service: "http://localhost:3000" })],
+        dns: false,
+      })
+      assert.deepStrictEqual(ensuredHostnames, [])
+    }).pipe(
+      Effect.provide(testLayer(
+        { post: () => Effect.succeed(baseCfTunnel) },
+        { dns: { ensure: (_tid, hostname) => { ensuredHostnames.push(hostname); return Effect.succeed(void 0) } } },
+      )),
+    )
+  })
+
+  it.effect("create skips DNS when auto is false", () => {
+    let ensuredHostnames: string[] = []
+    return Effect.gen(function* () {
+      const ops = yield* TunnelOperations
+      yield* ops.create("my-tunnel", {
+        ingress: [new IngressRule({ hostname: "app.example.com", service: "http://localhost:3000" })],
+        dns: { auto: false },
+      })
+      assert.deepStrictEqual(ensuredHostnames, [])
+    }).pipe(
+      Effect.provide(testLayer(
+        { post: () => Effect.succeed(baseCfTunnel) },
+        { dns: { ensure: (_tid, hostname) => { ensuredHostnames.push(hostname); return Effect.succeed(void 0) } } },
+      )),
+    )
+  })
+
+  it.effect("create passes DNS cleanup and overwrite policy to managed records", () => {
+    let ensureOptions: { cleanup?: boolean; overwrite?: boolean } | undefined
+    return Effect.gen(function* () {
+      const ops = yield* TunnelOperations
+      yield* ops.create("my-tunnel", {
+        ingress: [new IngressRule({ hostname: "app.example.com", service: "http://localhost:3000" })],
+        dns: { cleanup: false, overwrite: true },
+      })
+      assert.deepStrictEqual(ensureOptions, { cleanup: false, overwrite: true })
+    }).pipe(
+      Effect.provide(testLayer(
+        { post: () => Effect.succeed(baseCfTunnel) },
+        { dns: { ensure: (_tid, _hostname, options) => { ensureOptions = options; return Effect.succeed(void 0) } } },
       )),
     )
   })
@@ -174,6 +243,39 @@ describe("TunnelOperations (Effect)", () => {
     ),
   )
 
+  it.effect("for returns an existing tunnel by exact name", () => {
+    let createCalled = false
+    return Effect.gen(function* () {
+      const ops = yield* TunnelOperations
+      const info = yield* ops.for("my-tunnel")
+      assert.strictEqual(info.id, "t-1")
+      assert.isFalse(createCalled)
+    }).pipe(
+      Effect.provide(testLayer({
+        get: () => Effect.succeed([baseCfTunnel]),
+        post: () => { createCalled = true; return Effect.succeed(baseCfTunnel) },
+      })),
+    )
+  })
+
+  it.effect("for creates when no tunnel exists", () => {
+    let createdName: string | undefined
+    return Effect.gen(function* () {
+      const ops = yield* TunnelOperations
+      const info = yield* ops.for("my-tunnel")
+      assert.strictEqual(info.name, "my-tunnel")
+      assert.strictEqual(createdName, "my-tunnel")
+    }).pipe(
+      Effect.provide(testLayer({
+        get: () => Effect.succeed([]),
+        post: (_path, body) => {
+          createdName = (body as { name?: string }).name
+          return Effect.succeed(baseCfTunnel)
+        },
+      })),
+    )
+  })
+
   it.effect("get by UUID fetches directly", () =>
     Effect.gen(function* () {
       const ops = yield* TunnelOperations
@@ -212,12 +314,12 @@ describe("TunnelOperations (Effect)", () => {
     ),
   )
 
-  it.effect("delete with cleanupDns removes DNS first", () => {
-    let removedHostnames: string[] = []
+  it.effect("delete cleans up SDK-managed DNS by default", () => {
+    let removedForTunnel: string[] = []
     return Effect.gen(function* () {
       const ops = yield* TunnelOperations
-      yield* ops.del("12345678-1234-1234-1234-123456789012", { cleanupDns: true })
-      assert.deepStrictEqual(removedHostnames, ["app.example.com"])
+      yield* ops.del("12345678-1234-1234-1234-123456789012")
+      assert.deepStrictEqual(removedForTunnel, ["t-1"])
     }).pipe(
       Effect.provide(testLayer(
         {
@@ -226,8 +328,28 @@ describe("TunnelOperations (Effect)", () => {
         },
         {
           dns: {
-            list: () => Effect.succeed([{ hostname: "app.example.com", type: "CNAME", content: "t-1.cfargotunnel.com" }]),
-            remove: (_tid, hostname) => { removedHostnames.push(hostname); return Effect.succeed(void 0) },
+            removeManaged: (tunnelId) => { removedForTunnel.push(tunnelId); return Effect.succeed(void 0) },
+          },
+        },
+      )),
+    )
+  })
+
+  it.effect("delete skips DNS cleanup when cleanupDns is false", () => {
+    let removeManagedCalled = false
+    return Effect.gen(function* () {
+      const ops = yield* TunnelOperations
+      yield* ops.del("12345678-1234-1234-1234-123456789012", { cleanupDns: false })
+      assert.isFalse(removeManagedCalled)
+    }).pipe(
+      Effect.provide(testLayer(
+        {
+          get: () => Effect.succeed(baseCfTunnel),
+          del: () => Effect.succeed(null),
+        },
+        {
+          dns: {
+            removeManaged: () => { removeManagedCalled = true; return Effect.succeed(void 0) },
           },
         },
       )),

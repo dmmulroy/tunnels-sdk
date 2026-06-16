@@ -10,12 +10,18 @@ import path from "node:path"
 const CLI_ROOT = path.resolve(import.meta.dirname, "../..")
 const BIN_PATH = path.join(CLI_ROOT, "bin/tunnels.ts")
 
+/**
+ * Captured result from a completed CLI process.
+ */
 export interface CliResult {
   readonly stdout: string
   readonly stderr: string
   readonly exitCode: number
 }
 
+/**
+ * Options for spawning the CLI in tests.
+ */
 export interface RunCliOptions {
   /** Extra environment variables (merged with process.env) */
   readonly env?: Record<string, string | undefined>
@@ -26,8 +32,11 @@ export interface RunCliOptions {
 }
 
 /**
- * Run the CLI with the given arguments and return captured output.
- * Resolves when the process exits.
+ * Runs the CLI with the given arguments and returns captured output.
+ *
+ * @param args CLI arguments to pass after the binary name.
+ * @param options Optional process environment, timeout, and working directory settings.
+ * @returns A Promise resolving to captured output and exit code.
  */
 export function runCli(
   args: string[],
@@ -95,7 +104,12 @@ export function runCli(
 }
 
 /**
- * Run the CLI and parse stdout as JSON.
+ * Runs the CLI and parses stdout as JSON.
+ *
+ * @template T Parsed JSON payload type.
+ * @param args CLI arguments to pass after the binary name.
+ * @param options Optional process environment, timeout, and working directory settings.
+ * @returns A Promise resolving to parsed JSON and the raw CLI result.
  */
 export async function runCliJson<T = unknown>(
   args: string[],
@@ -116,8 +130,7 @@ export async function runCliJson<T = unknown>(
 }
 
 /**
- * Spawn the CLI as a long-running process (e.g. `tunnels expose`).
- * Returns a handle for interacting with the process.
+ * Handle for interacting with a long-running CLI process.
  */
 export interface CliProcess {
   readonly child: ChildProcess
@@ -133,6 +146,13 @@ export interface CliProcess {
   waitForExit(timeoutMs?: number): Promise<CliResult>
 }
 
+/**
+ * Spawns the CLI as a long-running process.
+ *
+ * @param args CLI arguments to pass after the binary name.
+ * @param options Optional process environment and working directory settings.
+ * @returns A handle for interacting with the running process.
+ */
 export function spawnCli(
   args: string[],
   options: RunCliOptions = {},

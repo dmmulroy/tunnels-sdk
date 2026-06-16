@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process"
 import { Effect, Layer, Ref, Scope, ServiceMap, Stream, SubscriptionRef } from "effect"
 import { TunnelProcessError, BinaryInstallError } from "../errors.js"
 import type { ConnectorInfo, LogEntry, TunnelMetrics, TunnelStatus } from "../schemas.js"
@@ -8,6 +9,9 @@ import { processStderr, applyEvents } from "./parse-stderr.js"
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * Structured error details emitted by a running cloudflared process.
+ */
 export interface TunnelProcessErrorInfo {
   readonly code: string
   readonly message: string
@@ -15,12 +19,18 @@ export interface TunnelProcessErrorInfo {
   readonly connector?: ConnectorInfo
 }
 
+/**
+ * Details for a cloudflared reconnect attempt.
+ */
 export interface ReconnectAttempt {
   readonly number: number
   readonly delay: number
   readonly connector: ConnectorInfo
 }
 
+/**
+ * Runtime events derived from cloudflared process output.
+ */
 export type TunnelEvent =
   | { readonly _tag: "Connected"; readonly connector: ConnectorInfo }
   | { readonly _tag: "Disconnected"; readonly connector: ConnectorInfo }
@@ -29,6 +39,9 @@ export type TunnelEvent =
   | { readonly _tag: "Metrics"; readonly metrics: TunnelMetrics }
   | { readonly _tag: "Status"; readonly status: TunnelStatus }
 
+/**
+ * Handle for a supervised cloudflared tunnel process.
+ */
 export interface RunningTunnel {
   readonly events: Stream.Stream<TunnelEvent>
   readonly logs: Stream.Stream<LogEntry>
@@ -38,6 +51,9 @@ export interface RunningTunnel {
   readonly exitCode: Effect.Effect<number, TunnelProcessError>
 }
 
+/**
+ * Options passed to `cloudflared tunnel run`.
+ */
 export interface RunOptions {
   readonly metrics?: string
   readonly logLevel?: "debug" | "info" | "warn" | "error"
@@ -49,15 +65,24 @@ export interface RunOptions {
 // Service
 // ---------------------------------------------------------------------------
 
+/**
+ * Effect service for starting and supervising cloudflared tunnel processes.
+ */
 export class TunnelProcessService extends ServiceMap.Service<
   TunnelProcessService,
   {
+    /**
+     * Runs cloudflared with a tunnel token inside the current scope.
+     */
     run(
       token: string,
       options?: RunOptions,
     ): Effect.Effect<RunningTunnel, TunnelProcessError | BinaryInstallError, Scope.Scope>
   }
 >()("tunnels/TunnelProcess") {
+  /**
+   * Live tunnel process layer backed by the cloudflared binary service.
+   */
   static readonly layer = Layer.effect(
     TunnelProcessService,
     Effect.gen(function* () {
@@ -82,13 +107,7 @@ export class TunnelProcessService extends ServiceMap.Service<
           const connectorsRef = yield* Ref.make<ReadonlyArray<ConnectorInfo>>([])
 
           // Spawn the process
-          const cp = yield* Effect.tryPromise({
-            try: () => import("node:child_process"),
-            catch: (cause) =>
-              new TunnelProcessError({ message: "Failed to load child_process", cause }),
-          })
-
-          const proc = cp.spawn(binaryPath, args, {
+          const proc = spawn(binaryPath, args, {
             stdio: ["ignore", "pipe", "pipe"],
           })
 

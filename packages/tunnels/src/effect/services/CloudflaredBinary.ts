@@ -1,17 +1,33 @@
 import { Effect, Layer, ServiceMap } from "effect"
 import { BinaryInstallError } from "../errors.js"
 
+/**
+ * Effect service for locating and installing the cloudflared binary.
+ */
 export class CloudflaredBinary extends ServiceMap.Service<
   CloudflaredBinary,
   {
+    /**
+     * Effect that resolves the cloudflared binary path.
+     */
     readonly path: Effect.Effect<string, BinaryInstallError>
+    /**
+     * Ensures cloudflared is installed and returns its binary path.
+     */
     ensureInstalled(): Effect.Effect<string, BinaryInstallError>
+    /**
+     * Installs cloudflared, optionally at a specific version.
+     */
     install(version?: string): Effect.Effect<void, BinaryInstallError>
+    /**
+     * Checks whether cloudflared is installed.
+     */
     isInstalled(): Effect.Effect<boolean>
   }
 >()("tunnels/CloudflaredBinary") {
   /**
-   * Production layer that wraps the existing cloudflared binary resolver.
+   * Builds a production layer that wraps the cloudflared binary resolver.
+   *
    * Uses dynamic import so the binary module's platform detection runs lazily.
    */
   static readonly layer = Layer.effect(

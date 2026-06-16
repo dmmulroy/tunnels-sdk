@@ -37,12 +37,12 @@ const client = new TunnelClient({
 })
 
 // Create tunnel + configure ingress + create DNS — one call
+// DNS is inferred from ingress hostnames by default.
 const tunnel = await client.tunnels.create("my-app", {
   ingress: [
     { hostname: "app.example.com", service: "http://localhost:3000" },
     { hostname: "api.example.com", service: "http://localhost:8080" },
   ],
-  dns: { auto: true },
 })
 
 // Run it
@@ -89,14 +89,29 @@ const tunnel = await client.tunnels.create("my-app", {
   ingress: [
     { hostname: "app.example.com", service: "http://localhost:3000" },
   ],
-  dns: { auto: true },
+  // Optional DNS policy. Omit for { auto: true, cleanup: true, overwrite: false }.
+  dns: { overwrite: false },
   routes: [
     { network: "10.0.0.0/8", vnet: "production" },
   ],
 })
 ```
 
-Creates the tunnel, pushes ingress config, creates DNS CNAMEs, and adds routes — all in sequence. Returns a `Tunnel`.
+Creates the tunnel, pushes ingress config, creates DNS CNAMEs for ingress hostnames by default, and adds routes — all in sequence. Returns a `Tunnel`.
+
+DNS policy defaults to `{ auto: true, cleanup: true, overwrite: false }`. Use `dns: false` or `dns: { auto: false }` to disable automatic DNS. Conflicting DNS records fail unless you pass `dns: { overwrite: true }`. Deleting a tunnel cleans up only SDK-owned DNS records marked for cleanup.
+
+#### `client.tunnels.for(name, options?)`
+
+```ts
+const tunnel = await client.tunnels.for("my-app", {
+  ingress: [
+    { hostname: "app.example.com", service: "http://localhost:3000" },
+  ],
+})
+```
+
+Looks for an existing tunnel with the exact name and returns it. If none exists, creates one with the same options as `create`. Options are only applied when a tunnel is created.
 
 #### `client.tunnels.list(options?)`
 
@@ -122,8 +137,8 @@ const tunnel = await client.tunnels.get("c1744f8b-...")      // by UUID
 
 ```ts
 await client.tunnels.delete("my-app", {
-  force: true,       // delete even with active connections
-  cleanupDns: true,  // remove associated CNAME records
+  force: true,        // delete even with active connections
+  cleanupDns: false,  // optional: skip SDK-owned DNS cleanup (defaults to true)
 })
 ```
 
@@ -382,7 +397,7 @@ const ops = new TunnelOperations({
 | `ProcessFactory` | `process.ts` | Creates `TunnelProcess` instances |
 | `ProcessSpawner` | `process.ts` | Wraps `child_process.spawn` |
 
-The concrete `cloudflared` module is only imported eagerly in `defaults.ts` (composition root) or lazily via `await import()` in `tunnel.ts` and `expose.ts`. Consumers who inject their own deps never load it.
+The concrete `cloudflared` module is loaded lazily by `CloudflaredBinary.layer`. Consumers who provide their own `CloudflaredBinary` service never load it.
 
 ### `defaults.ts` — composition root
 

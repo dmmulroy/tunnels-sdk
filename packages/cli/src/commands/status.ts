@@ -15,6 +15,9 @@ const statusColumns: ReadonlyArray<Column<TunnelInfo>> = [
   { header: "COLO", value: (t) => t.colo ?? "-" },
 ]
 
+/**
+ * CLI command that prints tunnel health status.
+ */
 export const status = Command.make("status", {}, () =>
   Effect.gen(function* () {
     const api = yield* TunnelApiService

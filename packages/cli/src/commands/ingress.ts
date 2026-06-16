@@ -49,6 +49,9 @@ const remove = Command.make("remove", {
   })
 ).pipe(Command.withDescription("Remove an ingress rule"))
 
+/**
+ * CLI command group for ingress rule management.
+ */
 export const ingress = Command.make("ingress").pipe(
   Command.withDescription("Ingress rule management"),
   Command.withSubcommands([add, list, remove])

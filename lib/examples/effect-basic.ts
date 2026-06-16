@@ -24,12 +24,11 @@ const program = Effect.gen(function* () {
   const ingress = yield* IngressManager
   const dns = yield* DnsManager
 
-  // Create a tunnel with ingress and auto-DNS
+  // Create a tunnel with ingress; DNS is inferred from ingress hostnames by default
   const tunnel = yield* tunnels.create("my-effect-app", {
     ingress: [
       { hostname: "app.example.com", service: "http://localhost:3000" },
     ],
-    dns: { auto: true },
   })
 
   yield* Effect.log(`Created tunnel: ${tunnel.name} (${tunnel.id})`)
@@ -57,7 +56,7 @@ const program = Effect.gen(function* () {
   yield* Effect.log(`DNS records: ${records.length}`)
 
   // Cleanup
-  yield* tunnels.del(tunnel.id, { force: true, cleanupDns: true })
+  yield* tunnels.del(tunnel.id, { force: true })
   yield* Effect.log("Tunnel deleted")
 }).pipe(
   Effect.provide(LiveLayer(config)),

@@ -68,6 +68,9 @@ const init = Command.make("init", {}, () =>
   })
 ).pipe(Command.withDescription("Initialize a new config file"))
 
+/**
+ * CLI command group for tunnel configuration files.
+ */
 export const config = Command.make("config").pipe(
   Command.withDescription("Config file management"),
   Command.withSubcommands([validate, diff, push, pull, init])

@@ -6,17 +6,32 @@ import { CloudflareApi } from "./CloudflareApi.js"
 
 type ManagerErrors = TunnelApiError | TunnelAuthError | TunnelSdkError
 
+/**
+ * Effect service for managing Cloudflare WARP virtual networks.
+ */
 export class VNetManager extends ServiceMap.Service<
   VNetManager,
   {
+    /**
+     * Creates a virtual network.
+     */
     create(
       name: string,
       options?: { default?: boolean; comment?: string },
     ): Effect.Effect<VNet, ManagerErrors>
+    /**
+     * Deletes a virtual network by name.
+     */
     del(name: string): Effect.Effect<void, ManagerErrors>
+    /**
+     * Lists virtual networks for the account.
+     */
     list(): Effect.Effect<ReadonlyArray<VNet>, ManagerErrors>
   }
 >()("tunnels/VNetManager") {
+  /**
+   * Live virtual-network manager layer backed by `CloudflareApi`.
+   */
   static readonly layer = Layer.effect(
     VNetManager,
     Effect.gen(function* () {

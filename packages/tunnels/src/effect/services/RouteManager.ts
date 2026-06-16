@@ -6,21 +6,39 @@ import { CloudflareApi } from "./CloudflareApi.js"
 
 type ManagerErrors = TunnelApiError | TunnelAuthError | TunnelSdkError
 
+/**
+ * Effect service for managing private-network routes for tunnels.
+ */
 export class RouteManager extends ServiceMap.Service<
   RouteManager,
   {
+    /**
+     * Adds a private-network route to a tunnel.
+     */
     add(
       tunnelId: string,
       network: string,
       options?: { vnet?: string; comment?: string },
     ): Effect.Effect<void, ManagerErrors>
+    /**
+     * Removes a private-network route from a tunnel.
+     */
     remove(tunnelId: string, network: string): Effect.Effect<void, ManagerErrors>
+    /**
+     * Lists private-network routes for a tunnel.
+     */
     list(tunnelId: string): Effect.Effect<ReadonlyArray<Route>, ManagerErrors>
+    /**
+     * Checks which private-network route would receive an IP address.
+     */
     check(
       ip: string,
     ): Effect.Effect<RouteCheckResult | null, TunnelApiError | TunnelAuthError>
   }
 >()("tunnels/RouteManager") {
+  /**
+   * Live route manager layer backed by `CloudflareApi`.
+   */
   static readonly layer = Layer.effect(
     RouteManager,
     Effect.gen(function* () {

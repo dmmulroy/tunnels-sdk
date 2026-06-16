@@ -12,6 +12,9 @@ import { TunnelApiError, TunnelAuthError } from "../errors.js"
 // Config
 // ---------------------------------------------------------------------------
 
+/**
+ * Configuration for authenticated Cloudflare API calls.
+ */
 export class CloudflareApiConfig extends Schema.Class<CloudflareApiConfig>("CloudflareApiConfig")({
   accountId: Schema.NonEmptyString,
   apiToken: Schema.Redacted(Schema.NonEmptyString),
@@ -66,19 +69,48 @@ const recoverError = (error: any): Effect.Effect<never, TunnelApiError | TunnelA
 
 type ApiErrors = TunnelApiError | TunnelAuthError
 
+/**
+ * Effect service for authenticated Cloudflare API requests.
+ */
 export class CloudflareApi extends ServiceMap.Service<
   CloudflareApi,
   {
+    /**
+     * Sends a GET request and decodes the Cloudflare result envelope.
+     */
     get<T>(path: string, params?: Record<string, string>): Effect.Effect<T, ApiErrors>
+    /**
+     * Sends a POST request and decodes the Cloudflare result envelope.
+     */
     post<T>(path: string, body?: unknown): Effect.Effect<T, ApiErrors>
+    /**
+     * Sends a PUT request and decodes the Cloudflare result envelope.
+     */
     put<T>(path: string, body?: unknown): Effect.Effect<T, ApiErrors>
+    /**
+     * Sends a DELETE request and decodes the Cloudflare result envelope.
+     */
     del<T>(path: string, params?: Record<string, string>): Effect.Effect<T, ApiErrors>
+    /**
+     * Streams paginated Cloudflare API results.
+     */
     paginate<T>(path: string, params?: Record<string, string>): Stream.Stream<T, ApiErrors>
+    /**
+     * Builds an account-scoped Cloudflare API path.
+     */
     accountPath(path: string): string
+    /**
+     * Builds a zone-scoped Cloudflare API path.
+     */
     zonePath(zoneId: string, path: string): string
   }
 >()("tunnels/CloudflareApi") {
-  // Layer that requires HttpClient to be provided
+  /**
+   * Builds a Cloudflare API layer that requires an HTTP client.
+   *
+   * @param config Cloudflare account and authentication configuration.
+   * @returns A layer that provides `CloudflareApi`.
+   */
   static layer(config: CloudflareApiConfig) {
     return Layer.effect(
       CloudflareApi,
@@ -212,7 +244,12 @@ export class CloudflareApi extends ServiceMap.Service<
     )
   }
 
-  // Self-contained layer (provides FetchHttpClient)
+  /**
+   * Builds a self-contained Cloudflare API layer using the fetch HTTP client.
+   *
+   * @param config Cloudflare account and authentication configuration.
+   * @returns A layer that provides `CloudflareApi` and its HTTP client.
+   */
   static layerLive(config: CloudflareApiConfig) {
     return CloudflareApi.layer(config).pipe(Layer.provide(FetchHttpClient.layer))
   }

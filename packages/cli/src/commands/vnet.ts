@@ -49,6 +49,9 @@ const del = Command.make("delete", {
   })
 ).pipe(Command.withDescription("Delete a virtual network"))
 
+/**
+ * CLI command group for virtual network management.
+ */
 export const vnet = Command.make("vnet").pipe(
   Command.withDescription("Virtual network management"),
   Command.withSubcommands([create, list, del])

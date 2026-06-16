@@ -3,7 +3,7 @@ import { Effect, Ref } from "effect"
 import { TestConsole } from "effect/testing"
 import { Command } from "effect/unstable/cli"
 import { create, list, info, del, run_, stop, logs, token } from "./tunnel.js"
-import { TunnelApiService, type TunnelInfo } from "../services.js"
+import { TunnelApiService, type TunnelApi, type TunnelInfo } from "../services.js"
 import { CliError } from "../errors.js"
 import { OutputContext, defaultOutputContext } from "../output.js"
 import { TestLayer } from "../test-layer.js"
@@ -64,7 +64,7 @@ const runStop = Command.runWith(stop, { version: "0.1.0" })
 const runLogs = Command.runWith(logs, { version: "0.1.0" })
 const runToken = Command.runWith(token, { version: "0.1.0" })
 
-const makeNoopApi = (): import("../services.js").TunnelApi => ({
+const makeNoopApi = (): TunnelApi => ({
   create: () => Effect.die("unused"),
   list: () => Effect.die("unused"),
   get: () => Effect.die("unused"),

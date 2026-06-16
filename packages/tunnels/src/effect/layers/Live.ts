@@ -10,8 +10,10 @@ import { TunnelProcessService } from "../services/TunnelProcess.js"
 import { CloudflaredBinary } from "../services/CloudflaredBinary.js"
 
 /**
- * Production layer — all services wired with explicit config.
- * Requires a `CloudflareApiConfig` with accountId + apiToken.
+ * Builds the production SDK layer with all live services wired together.
+ *
+ * @param config Cloudflare account and authentication configuration.
+ * @returns A layer that provides the complete tunnel SDK service graph.
  */
 export const LiveLayer = (config: CloudflareApiConfig) => {
   // CloudflareApi (with FetchHttpClient) is the root dependency

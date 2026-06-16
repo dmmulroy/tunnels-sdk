@@ -10,6 +10,9 @@ import { status } from "./commands/status.js"
 import { create, list, info, del, run_, stop, logs, token } from "./commands/tunnel.js"
 import { vnet } from "./commands/vnet.js"
 
+/**
+ * Root `tunnels` CLI command with shared flags and subcommands.
+ */
 export const tunnels = Command.make("tunnels").pipe(
   Command.withDescription("A modern CLI for Cloudflare Tunnels"),
   Command.withSharedFlags({

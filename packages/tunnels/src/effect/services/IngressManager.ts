@@ -22,15 +22,33 @@ const toCfIngressRule = (rule: IngressRule): CfIngressRule =>
     ...(rule.originRequest ? { originRequest: rule.originRequest as Record<string, unknown> } : {}),
   })
 
+/**
+ * Effect service for reading and mutating tunnel ingress rules.
+ */
 export class IngressManager extends ServiceMap.Service<
   IngressManager,
   {
+    /**
+     * Lists ingress rules for a tunnel.
+     */
     list(tunnelId: string): Effect.Effect<ReadonlyArray<IngressRule>, ManagerErrors>
+    /**
+     * Adds an ingress rule before the catch-all rule.
+     */
     add(tunnelId: string, rule: IngressRule): Effect.Effect<void, ManagerErrors>
+    /**
+     * Removes an ingress rule by hostname.
+     */
     remove(tunnelId: string, hostname: string): Effect.Effect<void, ManagerErrors>
+    /**
+     * Replaces all ingress rules for a tunnel.
+     */
     set(tunnelId: string, rules: ReadonlyArray<IngressRule>): Effect.Effect<void, ManagerErrors>
   }
 >()("tunnels/IngressManager") {
+  /**
+   * Live ingress manager layer backed by `CloudflareApi`.
+   */
   static readonly layer = Layer.effect(
     IngressManager,
     Effect.gen(function* () {

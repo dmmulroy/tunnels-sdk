@@ -1,10 +1,14 @@
-import { Effect, Scope, Stream } from "effect"
+import { spawn } from "node:child_process"
+import { createInterface } from "node:readline"
+import { Effect, Scope } from "effect"
 import { BinaryInstallError, TunnelProcessError } from "./errors.js"
 import { CloudflaredBinary } from "./services/CloudflaredBinary.js"
 
 /**
- * Quick-expose a local port via a Cloudflare tunnel (anonymous, no account needed).
- * Returns the generated trycloudflare URL. The tunnel is auto-closed when the scope closes.
+ * Quick-exposes a local port via an anonymous Cloudflare tunnel.
+ *
+ * @param port Local port to expose through trycloudflare.
+ * @returns An Effect that succeeds with the generated URL and closes the tunnel when the scope closes.
  */
 export const expose = (
   port: number,
@@ -17,19 +21,7 @@ export const expose = (
     const binary = yield* CloudflaredBinary
     const binaryPath = yield* binary.ensureInstalled()
 
-    const cp = yield* Effect.tryPromise({
-      try: () => import("node:child_process"),
-      catch: (cause) =>
-        new TunnelProcessError({ message: "Failed to load child_process", cause }),
-    })
-
-    const readline = yield* Effect.tryPromise({
-      try: () => import("node:readline"),
-      catch: (cause) =>
-        new TunnelProcessError({ message: "Failed to load readline", cause }),
-    })
-
-    const proc = cp.spawn(binaryPath, ["tunnel", "--url", `http://localhost:${port}`], {
+    const proc = spawn(binaryPath, ["tunnel", "--url", `http://localhost:${port}`], {
       stdio: ["ignore", "pipe", "pipe"],
     })
 
@@ -42,7 +34,7 @@ export const expose = (
 
     // Wait for the trycloudflare URL in stderr
     const url: string = yield* Effect.callback<string, TunnelProcessError>((resume) => {
-      const rl = readline.createInterface({ input: proc.stderr! })
+      const rl = createInterface({ input: proc.stderr! })
       const onLine = (line: string) => {
         const match = line.match(/(https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com)/)
         if (match) {

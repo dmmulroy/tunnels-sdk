@@ -3,6 +3,9 @@ import { Argument, Command, Flag } from "effect/unstable/cli"
 import { QuickTunnelService, TunnelApiService, IngressService, DnsService } from "../services.js"
 import { printResult } from "../output.js"
 
+/**
+ * CLI command that exposes a local port through a Cloudflare tunnel.
+ */
 export const expose = Command.make("expose", {
   port: Argument.integer("port").pipe(
     Argument.withDescription("Local port to expose")

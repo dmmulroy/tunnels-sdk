@@ -30,6 +30,7 @@ import {
   type ListTunnelOptions,
   type DeleteTunnelOptions,
   type RunTunnelOptions,
+  type TunnelLogEntry,
   type VNetCreateOptions,
 } from "./services.js"
 
@@ -119,6 +120,9 @@ interface RunningTunnelHandle {
   readonly tunnel: RunningTunnel
 }
 
+/**
+ * Live CLI tunnel API service backed by SDK tunnel operations.
+ */
 export const TunnelApiServiceLive = Layer.effect(
   TunnelApiService,
   Effect.gen(function* () {
@@ -214,7 +218,7 @@ export const TunnelApiServiceLive = Layer.effect(
             Effect.catch(() => Effect.succeed([] as Iterable<LogEntry>)),
           )
           return Array.from(entries).map(
-            (e): import("./services.js").TunnelLogEntry => ({
+            (e): TunnelLogEntry => ({
               timestamp: e.timestamp.toISOString(),
               level: e.level,
               message: e.message,
@@ -310,6 +314,7 @@ const DnsServiceLive = Layer.effect(
                     ),
                   ),
                 ),
+                { concurrency: 8 },
               ),
             ),
             Effect.map((arrays) => arrays.flat()),
@@ -319,12 +324,20 @@ const DnsServiceLive = Layer.effect(
       remove: (hostname: string) =>
         Effect.gen(function* () {
           const tunnels = yield* catchSdkErrors(ops.list())
-          for (const t of tunnels) {
-            const records = yield* catchSdkErrors(dns.list(t.id))
-            if (records.some((r) => r.hostname === hostname)) {
-              yield* catchSdkErrors(dns.remove(t.id, hostname))
-              return
-            }
+          const recordsByTunnel = yield* Effect.forEach(
+            tunnels,
+            (t) =>
+              catchSdkErrors(dns.list(t.id)).pipe(
+                Effect.map((records) => ({ tunnel: t, records })),
+              ),
+            { concurrency: 8 },
+          )
+          const match = recordsByTunnel.find(({ records }) =>
+            records.some((r) => r.hostname === hostname),
+          )
+          if (match) {
+            yield* catchSdkErrors(dns.remove(hostname))
+            return
           }
           yield* Effect.fail(
             CliError.UserError({ message: `DNS record not found: ${hostname}` }),
@@ -366,6 +379,7 @@ const RouteServiceLive = Layer.effect(
                     ),
                   ),
                 ),
+                { concurrency: 8 },
               ),
             ),
             Effect.map((arrays) => arrays.flat()),
@@ -375,12 +389,20 @@ const RouteServiceLive = Layer.effect(
       remove: (network: string) =>
         Effect.gen(function* () {
           const tunnels = yield* catchSdkErrors(ops.list())
-          for (const t of tunnels) {
-            const rs = yield* catchSdkErrors(routes.list(t.id))
-            if (rs.some((r) => r.network === network)) {
-              yield* catchSdkErrors(routes.remove(t.id, network))
-              return
-            }
+          const routesByTunnel = yield* Effect.forEach(
+            tunnels,
+            (t) =>
+              catchSdkErrors(routes.list(t.id)).pipe(
+                Effect.map((rs) => ({ tunnel: t, routes: rs })),
+              ),
+            { concurrency: 8 },
+          )
+          const match = routesByTunnel.find(({ routes }) =>
+            routes.some((r) => r.network === network),
+          )
+          if (match) {
+            yield* catchSdkErrors(routes.remove(match.tunnel.id, network))
+            return
           }
           yield* Effect.fail(
             CliError.UserError({ message: `Route not found: ${network}` }),
@@ -444,7 +466,10 @@ const AuthServiceStub = Layer.succeed(AuthService, {
 // ---------------------------------------------------------------------------
 
 /**
- * Create the full CLI LiveLayer backed by real SDK services.
+ * Creates the full CLI live layer backed by real SDK services.
+ *
+ * @param config Cloudflare account and authentication configuration.
+ * @returns A layer that provides CLI services.
  */
 export const LiveLayer = (config: CloudflareApiConfig) => {
   const sdkLayer = SdkLiveLayer(config)
@@ -518,10 +543,12 @@ const UnauthenticatedLayer = Layer.mergeAll(
 )
 
 /**
- * Create LiveLayer from environment variables.
- * Reads CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.
- * Falls back to UnauthenticatedLayer when credentials are missing
- * (allows --help / --version to work).
+ * Creates the CLI live layer from environment variables.
+ *
+ * Reads `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Falls back to an unauthenticated
+ * layer when credentials are missing so help and version commands can still run.
+ *
+ * @returns A layer that provides CLI services.
  */
 export const LiveLayerFromEnv = () => {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID

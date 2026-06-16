@@ -5,13 +5,12 @@ const client = new TunnelClient({
   apiToken: process.env.CF_API_TOKEN!,
 })
 
-// Create + configure + DNS in one call
+// Create + configure + DNS in one call. DNS is inferred from ingress hostnames.
 const tunnel = await client.tunnels.create("my-app", {
   ingress: [
     { hostname: "app.example.com", service: "http://localhost:3000" },
     { hostname: "api.example.com", service: "http://localhost:8080" },
   ],
-  dns: { auto: true },
 })
 
 console.log(`Tunnel "${tunnel.name}" created (${tunnel.id})`)
@@ -34,5 +33,5 @@ for await (const t of client.tunnels.listAll()) {
 }
 
 // Cleanup
-await client.tunnels.delete("my-app", { force: true, cleanupDns: true })
+await client.tunnels.delete("my-app", { force: true })
 await client.dispose()

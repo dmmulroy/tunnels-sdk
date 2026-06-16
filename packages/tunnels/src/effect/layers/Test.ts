@@ -11,8 +11,9 @@ import { CloudflaredBinary } from "../services/CloudflaredBinary.js"
 const die = (msg: string) => Effect.die(new Error(msg))
 
 /**
- * Test layer — all services stubbed with "not implemented" defaults.
- * Override individual services with Layer.provide to inject test data.
+ * Provides stubbed SDK services for tests.
+ *
+ * Override individual services with `Layer.provide` to inject test data.
  */
 export const TestLayer = Layer.mergeAll(
   Layer.succeed(
@@ -31,6 +32,7 @@ export const TestLayer = Layer.mergeAll(
     TunnelOperations,
     TunnelOperations.of({
       create: () => die("TestLayer: TunnelOperations.create not stubbed"),
+      for: () => die("TestLayer: TunnelOperations.for not stubbed"),
       list: () => die("TestLayer: TunnelOperations.list not stubbed"),
       listAll: () => Stream.empty,
       get: () => die("TestLayer: TunnelOperations.get not stubbed"),
@@ -53,6 +55,7 @@ export const TestLayer = Layer.mergeAll(
     DnsManager.of({
       ensure: () => Effect.succeed(void 0),
       remove: () => Effect.succeed(void 0),
+      removeManaged: () => Effect.succeed(void 0),
       list: () => Effect.succeed([]),
     }),
   ),

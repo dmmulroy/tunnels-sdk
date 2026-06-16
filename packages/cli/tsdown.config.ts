@@ -1,5 +1,8 @@
 import { defineConfig } from "tsdown"
 
+/**
+ * Build configuration for the tunnels CLI package.
+ */
 export default defineConfig({
   entry: {
     "bin/tunnels": "bin/tunnels.ts",

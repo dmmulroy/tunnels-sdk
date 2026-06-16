@@ -90,7 +90,6 @@ const tunnel = await client.tunnels.create("my-app", {
     { hostname: "app.example.com", service: "http://localhost:3000" },
     { hostname: "api.example.com", service: "http://localhost:8080" },
   ],
-  dns: { auto: true },
 })
 
 // Everything happened:
@@ -98,6 +97,19 @@ const tunnel = await client.tunnels.create("my-app", {
 // 2. Ingress config pushed
 // 3. DNS CNAME records created for each hostname
 // 4. Tunnel object returned, ready to run
+```
+
+#### Get or Create a Tunnel
+
+```ts
+const tunnel = await client.tunnels.for("my-app", {
+  ingress: [
+    { hostname: "app.example.com", service: "http://localhost:3000" },
+  ],
+})
+
+// Returns the existing exact-name match, or creates it with these options.
+// Options are only applied when a tunnel is created.
 ```
 
 #### List Tunnels
@@ -136,7 +148,7 @@ const tunnel = await client.tunnels.get("c1744f8b...")  // by ID
 await client.tunnels.delete("my-app")
 await client.tunnels.delete("my-app", {
   force: true,        // delete even with active connections
-  cleanupDns: true,   // remove associated CNAME records
+  cleanupDns: false,  // optional: skip SDK-owned DNS cleanup (defaults to true)
 })
 ```
 
@@ -266,7 +278,6 @@ const program = Effect.gen(function* () {
   // Create a tunnel
   const tunnel = yield* tunnels.create("my-app", {
     ingress: [{ hostname: "app.example.com", service: "http://localhost:3000" }],
-    dns: { auto: true },
   })
 
   // Stream all tunnels
@@ -275,7 +286,7 @@ const program = Effect.gen(function* () {
   )
 
   // Cleanup
-  yield* tunnels.del(tunnel.id, { force: true, cleanupDns: true })
+  yield* tunnels.del(tunnel.id, { force: true })
 }).pipe(Effect.provide(LiveLayer(config)))
 
 Effect.runPromise(program)
@@ -509,7 +520,7 @@ interface DeleteOptions {
   /** Force delete even with active connections */
   force?: boolean
 
-  /** Remove associated DNS records */
+  /** Clean up SDK-owned DNS records (default: true) */
   cleanupDns?: boolean
 }
 ```
@@ -528,9 +539,10 @@ interface TunnelConfig {
   autoFallback?: boolean
 
   /** DNS management */
-  dns?: {
-    auto?: boolean        // auto-create CNAME on run
-    cleanup?: boolean     // remove CNAME on delete
+  dns?: boolean | {
+    auto?: boolean        // auto-create CNAMEs for ingress hostnames (default: true)
+    cleanup?: boolean     // clean up SDK-owned records on delete (default: true)
+    overwrite?: boolean   // replace conflicting records (default: false)
   }
 
   /** Private network routes */

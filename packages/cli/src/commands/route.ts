@@ -49,6 +49,9 @@ const remove = Command.make("remove", {
   })
 ).pipe(Command.withDescription("Remove a route"))
 
+/**
+ * CLI command group for private network route management.
+ */
 export const route = Command.make("route").pipe(
   Command.withDescription("Private network route management"),
   Command.withSubcommands([add, list, remove])

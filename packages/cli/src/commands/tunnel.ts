@@ -3,6 +3,9 @@ import { Argument, Command, Flag } from "effect/unstable/cli"
 import { TunnelApiService, type TunnelInfo } from "../services.js"
 import { printData, printResult, printSingle, type Column } from "../output.js"
 
+/**
+ * CLI command that creates a named tunnel.
+ */
 export const create = Command.make("create", {
   name: Argument.string("name").pipe(
     Argument.withDescription("Tunnel name")
@@ -29,6 +32,9 @@ const tunnelColumns: ReadonlyArray<Column<TunnelInfo>> = [
   { header: "CONNS", value: (t) => String(t.connections ?? 0) },
 ]
 
+/**
+ * CLI command that lists named tunnels.
+ */
 export const list = Command.make("list", {
   status: Flag.string("status").pipe(
     Flag.withDescription("Filter by status"),
@@ -46,6 +52,9 @@ export const list = Command.make("list", {
   Command.withDescription("List tunnels")
 )
 
+/**
+ * CLI command that shows details for one tunnel.
+ */
 export const info = Command.make("info", {
   ref: Argument.string("name-or-id").pipe(
     Argument.withDescription("Tunnel name or ID")
@@ -68,6 +77,9 @@ export const info = Command.make("info", {
   Command.withDescription("Show tunnel details")
 )
 
+/**
+ * CLI command that deletes a named tunnel.
+ */
 export const del = Command.make("delete", {
   ref: Argument.string("name-or-id").pipe(
     Argument.withDescription("Tunnel name or ID")
@@ -88,6 +100,9 @@ export const del = Command.make("delete", {
   Command.withDescription("Delete a tunnel")
 )
 
+/**
+ * CLI command that starts a named tunnel.
+ */
 export const run_ = Command.make("run", {
   ref: Argument.string("name-or-id").pipe(
     Argument.withDescription("Tunnel name or ID")
@@ -102,6 +117,9 @@ export const run_ = Command.make("run", {
   Command.withDescription("Run a tunnel")
 )
 
+/**
+ * CLI command that stops a running tunnel.
+ */
 export const stop = Command.make("stop", {
   ref: Argument.string("name-or-id").pipe(
     Argument.withDescription("Tunnel name or ID")
@@ -116,6 +134,9 @@ export const stop = Command.make("stop", {
   Command.withDescription("Stop a running tunnel")
 )
 
+/**
+ * CLI command that prints tunnel logs.
+ */
 export const logs = Command.make("logs", {
   ref: Argument.string("name-or-id").pipe(
     Argument.withDescription("Tunnel name or ID")
@@ -132,6 +153,9 @@ export const logs = Command.make("logs", {
   Command.withDescription("Stream tunnel logs")
 )
 
+/**
+ * CLI command that prints a tunnel token.
+ */
 export const token = Command.make("token", {
   ref: Argument.string("name-or-id").pipe(
     Argument.withDescription("Tunnel name or ID")

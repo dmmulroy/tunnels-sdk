@@ -476,7 +476,7 @@ export class CloudflaredBinary extends ServiceMap.Service<CloudflaredBinary, {
   static readonly layer: Layer.Layer<CloudflaredBinary> = Layer.effect(
     CloudflaredBinary,
     Effect.gen(function*() {
-      const resolver = (await import("../../bin/cloudflared.js")).cloudflared
+      const resolver = yield* loadCloudflaredResolver
 
       const ensureInstalled = Effect.fn("CloudflaredBinary.ensureInstalled")(function*() {
         const installed = yield* Effect.tryPromise({

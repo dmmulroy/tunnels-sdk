@@ -1,5 +1,8 @@
 import { defineConfig } from "tsdown"
 
+/**
+ * Build configuration for the tunnels SDK package.
+ */
 export default defineConfig({
   entry: ["src/**/*.ts", "!src/**/*.test.ts", "!src/**/test-helpers.ts"],
   format: "esm",

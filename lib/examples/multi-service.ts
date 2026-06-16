@@ -16,7 +16,6 @@ const tunnel = await client.tunnels.create("platform", {
       originRequest: { connectTimeout: "60s" },
     },
   ],
-  dns: { auto: true },
 })
 
 // Later: add a new service without touching existing ones
@@ -48,8 +47,8 @@ if (check) {
 
 // Remove a service
 await client.ingress.remove(tunnel.id, "docs.example.com")
-await client.dns.remove(tunnel.id, "docs.example.com")
+await client.dns.remove("docs.example.com")
 
 // Cleanup
-await client.tunnels.delete(tunnel.id, { force: true, cleanupDns: true })
+await client.tunnels.delete(tunnel.id, { force: true })
 await client.dispose()

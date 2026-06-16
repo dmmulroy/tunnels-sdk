@@ -1,6 +1,9 @@
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vitest/config"
 
+/**
+ * Unit test configuration for the tunnels CLI package.
+ */
 export default defineConfig({
   resolve: {
     alias: {

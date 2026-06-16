@@ -20,6 +20,9 @@ import { TunnelClient } from "../../src/wrapper.js"
 import { resourceName } from "./resource-name.js"
 import type { TestEnv } from "./env.js"
 
+/**
+ * Test context that owns a real client and tracked cleanup resources.
+ */
 export interface TestContext {
   /** Pre-wired TunnelClient with real credentials */
   readonly client: TunnelClient
@@ -37,12 +40,10 @@ export interface TestContext {
 }
 
 /**
- * Create a test context with a real TunnelClient and automatic cleanup.
+ * Creates a test context with a real TunnelClient and automatic cleanup.
  *
- * Usage:
- *   let ctx: TestContext
- *   beforeAll(() => { ctx = createTestContext(env) })
- *   afterAll(() => ctx.cleanup())
+ * @param env Cloudflare test environment values.
+ * @returns A test context with resource tracking and cleanup helpers.
  */
 export function createTestContext(env: TestEnv): TestContext {
   const client = new TunnelClient({

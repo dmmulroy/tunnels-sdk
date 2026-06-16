@@ -1,7 +1,12 @@
 import { Effect, Layer, Stream } from "effect"
 import { CloudflareApi } from "./CloudflareApi.js"
 
-/** Create a mock CloudflareApi layer for testing manager services */
+/**
+ * Creates a mock Cloudflare API layer for testing manager services.
+ *
+ * @param handlers Optional request handlers used to override default stub responses.
+ * @returns A layer that provides `CloudflareApi`.
+ */
 export function mockApi(handlers: {
   get?: (path: string, params?: Record<string, string>) => Effect.Effect<any, any>
   post?: (path: string, body?: unknown) => Effect.Effect<any, any>

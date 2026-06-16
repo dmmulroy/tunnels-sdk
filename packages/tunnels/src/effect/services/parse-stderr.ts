@@ -10,6 +10,12 @@ type RawJson = Record<string, unknown>
 // parseLine — parse a single cloudflared stderr JSON line into a LogEntry
 // ---------------------------------------------------------------------------
 
+/**
+ * Parses one cloudflared stderr JSON line into a normalized log entry.
+ *
+ * @param line Raw stderr line emitted by cloudflared.
+ * @returns An Option containing the parsed log entry when the line is valid.
+ */
 export function parseLine(line: string): Option.Option<LogEntry> {
   let raw: Record<string, unknown>
   try {
@@ -59,6 +65,12 @@ const LEVEL_MAP: Record<string, "info" | "warn" | "error" | "debug"> = {
 // toEvent — derive a TunnelEvent from a raw cloudflared JSON line
 // ---------------------------------------------------------------------------
 
+/**
+ * Derives a tunnel event from one cloudflared stderr JSON line.
+ *
+ * @param line Raw stderr line emitted by cloudflared.
+ * @returns An Option containing the derived tunnel event when recognized.
+ */
 export function toEvent(line: string): Option.Option<TunnelEvent> {
   let raw: RawJson
   try {
@@ -143,20 +155,22 @@ function normalizeLevel(
 // processStderr — bridge a Node ReadableStream into Effect log + event streams
 // ---------------------------------------------------------------------------
 
+/**
+ * Streams produced while parsing cloudflared stderr.
+ */
 export interface StderrStreams {
   readonly logs: Stream.Stream<LogEntry>
   readonly events: Stream.Stream<TunnelEvent>
 }
 
 /**
- * Bridge a Node ReadableStream (cloudflared stderr) into Effect log + event
- * streams. Returns `StderrStreams` with a `logs` stream of parsed LogEntry
- * values and an `events` stream of derived TunnelEvent values.
+ * Bridges cloudflared stderr into independent log and event streams.
  *
- * Malformed lines are silently skipped.
- *
- * Internally uses two `Stream.callback` queues fed by a single readline
+ * Malformed lines are silently skipped. Internally this uses two queues fed by a single readline
  * instance so both streams can be consumed independently.
+ *
+ * @param stderr Readable stream connected to cloudflared stderr.
+ * @returns An Effect that succeeds with parsed stderr streams scoped to the readline lifetime.
  */
 export function processStderr(
   stderr: NodeJS.ReadableStream,
@@ -200,6 +214,14 @@ export function processStderr(
 // applyEvents — consume an event stream and update status + connectors refs
 // ---------------------------------------------------------------------------
 
+/**
+ * Applies tunnel events to status and connector references.
+ *
+ * @param events Stream of parsed tunnel events.
+ * @param statusRef Mutable subscription ref containing the latest tunnel status.
+ * @param connectorsRef Mutable ref containing currently connected connectors.
+ * @returns An Effect that completes when the event stream completes.
+ */
 export const applyEvents = (
   events: Stream.Stream<TunnelEvent>,
   statusRef: SubscriptionRef.SubscriptionRef<TunnelStatus>,

@@ -1,8 +1,23 @@
 // Public API
+/**
+ * Root CLI command.
+ */
 export { tunnels } from "./main.js"
+/**
+ * CLI error constructors and exit-code mapping.
+ */
 export { CliError, toExitCode } from "./errors.js"
+/**
+ * Output formatting helpers and context service.
+ */
 export { formatJson, formatTable, printData, OutputContext, defaultOutputContext, type Column, type OutputFormat } from "./output.js"
+/**
+ * Production CLI service layer.
+ */
 export { LiveLayer } from "./live-layer.js"
+/**
+ * CLI service tags and data contracts.
+ */
 export {
   type QuickTunnelResult,
   type QuickTunnel,

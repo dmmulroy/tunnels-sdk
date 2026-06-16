@@ -4,6 +4,9 @@ import { Schema } from "effect"
 // Cloudflare API wire types (snake_case, match CF API JSON)
 // ---------------------------------------------------------------------------
 
+/**
+ * Cloudflare API connection record for a tunnel connector.
+ */
 export class CfTunnelConnection extends Schema.Class<CfTunnelConnection>("CfTunnelConnection")({
   id: Schema.String,
   colo_name: Schema.String,
@@ -13,6 +16,9 @@ export class CfTunnelConnection extends Schema.Class<CfTunnelConnection>("CfTunn
   is_pending_reconnect: Schema.Boolean,
 }) {}
 
+/**
+ * Cloudflare API tunnel record as returned by the tunnel endpoints.
+ */
 export class CfTunnel extends Schema.Class<CfTunnel>("CfTunnel")({
   id: Schema.String,
   name: Schema.String,
@@ -23,6 +29,9 @@ export class CfTunnel extends Schema.Class<CfTunnel>("CfTunnel")({
   connections: Schema.Array(CfTunnelConnection),
 }) {}
 
+/**
+ * Cloudflare API DNS record used for tunnel CNAMEs.
+ */
 export class CfDnsRecord extends Schema.Class<CfDnsRecord>("CfDnsRecord")({
   id: Schema.String,
   name: Schema.String,
@@ -30,14 +39,22 @@ export class CfDnsRecord extends Schema.Class<CfDnsRecord>("CfDnsRecord")({
   content: Schema.String,
   proxied: Schema.Boolean,
   ttl: Schema.Number,
+  comment: Schema.optional(Schema.String),
+  tags: Schema.optional(Schema.Array(Schema.String)),
 }) {}
 
+/**
+ * Cloudflare API zone record used when resolving hostnames to zones.
+ */
 export class CfZone extends Schema.Class<CfZone>("CfZone")({
   id: Schema.String,
   name: Schema.String,
   status: Schema.String,
 }) {}
 
+/**
+ * Cloudflare API private-network route record.
+ */
 export class CfRoute extends Schema.Class<CfRoute>("CfRoute")({
   id: Schema.String,
   network: Schema.String,
@@ -49,6 +66,9 @@ export class CfRoute extends Schema.Class<CfRoute>("CfRoute")({
   deleted_at: Schema.NullOr(Schema.String),
 }) {}
 
+/**
+ * Cloudflare API virtual network record.
+ */
 export class CfVirtualNetwork extends Schema.Class<CfVirtualNetwork>("CfVirtualNetwork")({
   id: Schema.String,
   name: Schema.String,
@@ -58,6 +78,9 @@ export class CfVirtualNetwork extends Schema.Class<CfVirtualNetwork>("CfVirtualN
   deleted_at: Schema.NullOr(Schema.String),
 }) {}
 
+/**
+ * Cloudflare API ingress rule in remote tunnel configuration.
+ */
 export class CfIngressRule extends Schema.Class<CfIngressRule>("CfIngressRule")({
   hostname: Schema.optional(Schema.String),
   service: Schema.String,
@@ -65,6 +88,9 @@ export class CfIngressRule extends Schema.Class<CfIngressRule>("CfIngressRule")(
   originRequest: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 }) {}
 
+/**
+ * Cloudflare API tunnel configuration envelope.
+ */
 export class CfTunnelConfig extends Schema.Class<CfTunnelConfig>("CfTunnelConfig")({
   config: Schema.Struct({
     ingress: Schema.Array(CfIngressRule),
@@ -79,14 +105,23 @@ export class CfTunnelConfig extends Schema.Class<CfTunnelConfig>("CfTunnelConfig
 // SDK domain types (camelCase, public-facing)
 // ---------------------------------------------------------------------------
 
+/**
+ * Schema for supported tunnel health states.
+ */
 export const TunnelStatus = Schema.Union([
   Schema.Literal("healthy"),
   Schema.Literal("inactive"),
   Schema.Literal("degraded"),
   Schema.Literal("down"),
 ])
+/**
+ * Supported tunnel health state.
+ */
 export type TunnelStatus = typeof TunnelStatus.Type
 
+/**
+ * Public tunnel connector connection details.
+ */
 export class TunnelConnection extends Schema.Class<TunnelConnection>("TunnelConnection")({
   id: Schema.String,
   colo: Schema.String,
@@ -97,6 +132,9 @@ export class TunnelConnection extends Schema.Class<TunnelConnection>("TunnelConn
   isPendingReconnect: Schema.Boolean,
 }) {}
 
+/**
+ * Public tunnel metadata returned by the SDK.
+ */
 export class TunnelInfo extends Schema.Class<TunnelInfo>("TunnelInfo")({
   id: Schema.String,
   name: Schema.String,
@@ -107,6 +145,9 @@ export class TunnelInfo extends Schema.Class<TunnelInfo>("TunnelInfo")({
   remoteConfig: Schema.Boolean,
 }) {}
 
+/**
+ * Public ingress rule that maps hostnames and paths to origin services.
+ */
 export class IngressRule extends Schema.Class<IngressRule>("IngressRule")({
   hostname: Schema.optional(Schema.String),
   service: Schema.String,
@@ -114,6 +155,9 @@ export class IngressRule extends Schema.Class<IngressRule>("IngressRule")({
   originRequest: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 }) {}
 
+/**
+ * Public private-network route attached to a tunnel.
+ */
 export class Route extends Schema.Class<Route>("Route")({
   network: Schema.String,
   tunnelId: Schema.String,
@@ -122,18 +166,27 @@ export class Route extends Schema.Class<Route>("Route")({
   comment: Schema.optional(Schema.String),
 }) {}
 
+/**
+ * Result of checking which route would receive an IP address.
+ */
 export class RouteCheckResult extends Schema.Class<RouteCheckResult>("RouteCheckResult")({
   tunnel: Schema.String,
   route: Schema.String,
   vnet: Schema.String,
 }) {}
 
+/**
+ * Public DNS record associated with a tunnel.
+ */
 export class DnsRecord extends Schema.Class<DnsRecord>("DnsRecord")({
   hostname: Schema.String,
   type: Schema.String,
   content: Schema.String,
 }) {}
 
+/**
+ * Public Cloudflare WARP virtual network metadata.
+ */
 export class VNet extends Schema.Class<VNet>("VNet")({
   id: Schema.String,
   name: Schema.String,
@@ -141,6 +194,9 @@ export class VNet extends Schema.Class<VNet>("VNet")({
   comment: Schema.optional(Schema.String),
 }) {}
 
+/**
+ * Runtime connector identity emitted by cloudflared logs.
+ */
 export class ConnectorInfo extends Schema.Class<ConnectorInfo>("ConnectorInfo")({
   id: Schema.String,
   colo: Schema.String,
@@ -148,6 +204,9 @@ export class ConnectorInfo extends Schema.Class<ConnectorInfo>("ConnectorInfo")(
   location: Schema.String,
 }) {}
 
+/**
+ * Runtime tunnel metrics emitted by cloudflared.
+ */
 export class TunnelMetrics extends Schema.Class<TunnelMetrics>("TunnelMetrics")({
   rps: Schema.Number,
   p50Ms: Schema.Number,
@@ -157,14 +216,23 @@ export class TunnelMetrics extends Schema.Class<TunnelMetrics>("TunnelMetrics")(
   bytesOut: Schema.Number,
 }) {}
 
+/**
+ * Schema for normalized cloudflared log levels.
+ */
 export const LogLevel = Schema.Union([
   Schema.Literal("info"),
   Schema.Literal("warn"),
   Schema.Literal("error"),
   Schema.Literal("debug"),
 ])
+/**
+ * Normalized cloudflared log level.
+ */
 export type LogLevel = typeof LogLevel.Type
 
+/**
+ * Parsed cloudflared log entry.
+ */
 export class LogEntry extends Schema.Class<LogEntry>("LogEntry")({
   timestamp: Schema.Date,
   level: LogLevel,

@@ -5,13 +5,20 @@
  * and validates the token has the permissions we need before any test runs.
  */
 
+/**
+ * Required Cloudflare environment values for SDK tests.
+ */
 export interface TestEnv {
   readonly accountId: string
   readonly apiToken: string
   readonly testZone: string
 }
 
-/** Read env vars or return null if any are missing */
+/**
+ * Reads Cloudflare test environment variables.
+ *
+ * @returns Test environment values, or null when any required value is missing.
+ */
 export function getTestEnv(): TestEnv | null {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID
   const apiToken = process.env.CLOUDFLARE_API_TOKEN
@@ -21,7 +28,11 @@ export function getTestEnv(): TestEnv | null {
   return { accountId, apiToken, testZone }
 }
 
-/** Use in describe() blocks to skip when credentials are missing */
+/**
+ * Reads required Cloudflare test credentials or throws a skip-style error.
+ *
+ * @returns Test environment values when all required values are configured.
+ */
 export function requiresAuth(): TestEnv {
   const env = getTestEnv()
   if (!env) {
@@ -33,10 +44,11 @@ export function requiresAuth(): TestEnv {
 }
 
 /**
- * Returns true if auth env vars are present.
- * Use to conditionally define describe blocks:
+ * Checks whether Cloudflare auth environment variables are present.
  *
- *   const describeAuth = hasAuth() ? describe : describe.skip
+ * Use to conditionally define describe blocks.
+ *
+ * @returns True when all required auth values are configured.
  */
 export function hasAuth(): boolean {
   return getTestEnv() !== null

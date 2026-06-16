@@ -49,6 +49,9 @@ const remove = Command.make("remove", {
   })
 ).pipe(Command.withDescription("Remove a DNS record"))
 
+/**
+ * CLI command group for DNS record management.
+ */
 export const dns = Command.make("dns").pipe(
   Command.withDescription("DNS record management"),
   Command.withSubcommands([create, list, remove])

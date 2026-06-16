@@ -91,6 +91,7 @@ const TunnelConfigBaseSchema = Schema.Struct({
     Schema.Struct({
       auto: Schema.optional(Schema.Boolean),
       cleanup: Schema.optional(Schema.Boolean),
+      overwrite: Schema.optional(Schema.Boolean),
     }),
   ),
   routes: Schema.optional(Schema.Array(RouteSchema)),
@@ -108,6 +109,9 @@ type TunnelConfigBase = typeof TunnelConfigBaseSchema.Type
 // Output type
 // ---------------------------------------------------------------------------
 
+/**
+ * Normalized tunnel configuration returned after validation.
+ */
 export interface TunnelConfigOutput extends TunnelConfigBase {
   readonly autoFallback: boolean
 }
@@ -116,6 +120,12 @@ export interface TunnelConfigOutput extends TunnelConfigBase {
 // Effectful parse with custom validations
 // ---------------------------------------------------------------------------
 
+/**
+ * Parses and validates an unknown tunnel configuration object.
+ *
+ * @param input Raw configuration value to decode and normalize.
+ * @returns An Effect that succeeds with normalized config or fails with `ConfigValidationError`.
+ */
 export const parseConfig = Effect.fn("TunnelConfig.parse")(
   function* (input: unknown): Effect.fn.Return<TunnelConfigOutput, ConfigValidationError> {
     // Step 1: Decode through Schema (with strict originRequest)
@@ -188,6 +198,12 @@ export const parseConfig = Effect.fn("TunnelConfig.parse")(
 // YAML helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Parses and validates tunnel configuration from a YAML string.
+ *
+ * @param yamlString YAML document containing tunnel configuration.
+ * @returns An Effect that succeeds with normalized config or fails with `ConfigValidationError`.
+ */
 export const parseConfigFromYaml = Effect.fn("TunnelConfig.fromYaml")(
   function* (yamlString: string): Effect.fn.Return<TunnelConfigOutput, ConfigValidationError> {
     let parsed: unknown
@@ -203,6 +219,12 @@ export const parseConfigFromYaml = Effect.fn("TunnelConfig.fromYaml")(
   },
 )
 
+/**
+ * Reads, parses, and validates tunnel configuration from a YAML file.
+ *
+ * @param path Filesystem path to the YAML configuration file.
+ * @returns An Effect that succeeds with normalized config or fails with `ConfigValidationError`.
+ */
 export const parseConfigFromFile = Effect.fn("TunnelConfig.fromFile")(
   function* (path: string): Effect.fn.Return<TunnelConfigOutput, ConfigValidationError> {
     const content = yield* Effect.tryPromise({

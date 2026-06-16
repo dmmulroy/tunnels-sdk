@@ -17,6 +17,12 @@ describe("DnsManager (Effect)", () => {
       assert.strictEqual(postedBody.type, "CNAME")
       assert.strictEqual(postedBody.content, "tunnel-1.cfargotunnel.com")
       assert.strictEqual(postedBody.proxied, true)
+      assert.strictEqual(postedBody.comment, "Managed by tunnels-sdk; tunnel=tunnel-1; cleanup=true")
+      assert.deepStrictEqual(postedBody.tags, [
+        "tunnels-sdk:managed",
+        "tunnels-sdk:tunnel:tunnel-1",
+        "tunnels-sdk:cleanup:true",
+      ])
     }).pipe(
       Effect.provide(testLayer({
         get: (path, params) => {
@@ -37,17 +43,47 @@ describe("DnsManager (Effect)", () => {
     )
   })
 
-  it.effect("ensure updates existing record if content differs", () => {
+  it.effect("ensure rejects conflicting existing records unless overwrite is true", () => {
+    let putCalled = false
+    return Effect.gen(function* () {
+      const mgr = yield* DnsManager
+      const message = yield* mgr.ensure("tunnel-2", "app.example.com").pipe(
+        Effect.catchTag("TunnelSdkError", (error) => Effect.succeed(error.message)),
+      )
+      assert.isTrue(message.includes("already exists"))
+      assert.isTrue(message.includes("dns: { overwrite: true }"))
+      assert.isFalse(putCalled)
+    }).pipe(
+      Effect.provide(testLayer({
+        get: (path) => {
+          if (path === "/zones") {
+            return Effect.succeed([{ id: "zone-1", name: "example.com", status: "active" }])
+          }
+          if (path.includes("/dns_records")) {
+            return Effect.succeed([{
+              id: "dns-1", name: "app.example.com", type: "CNAME",
+              content: "old-tunnel.cfargotunnel.com", proxied: true, ttl: 1,
+            }])
+          }
+          return Effect.succeed([])
+        },
+        put: () => { putCalled = true; return Effect.succeed({}) },
+      })),
+    )
+  })
+
+  it.effect("ensure overwrites conflicting records when overwrite is true", () => {
     let putPath = ""
     let putBody: any = null
     return Effect.gen(function* () {
       const mgr = yield* DnsManager
-      yield* mgr.ensure("tunnel-2", "app.example.com")
+      yield* mgr.ensure("tunnel-2", "app.example.com", { overwrite: true })
       assert.strictEqual(putPath, "/zones/zone-1/dns_records/dns-1")
       assert.strictEqual(putBody.content, "tunnel-2.cfargotunnel.com")
+      assert.strictEqual(putBody.comment, "Managed by tunnels-sdk; tunnel=tunnel-2; cleanup=true")
     }).pipe(
       Effect.provide(testLayer({
-        get: (path, params) => {
+        get: (path) => {
           if (path === "/zones") {
             return Effect.succeed([{ id: "zone-1", name: "example.com", status: "active" }])
           }
@@ -100,7 +136,7 @@ describe("DnsManager (Effect)", () => {
     let deletedPath = ""
     return Effect.gen(function* () {
       const mgr = yield* DnsManager
-      yield* mgr.remove("tunnel-1", "app.example.com")
+      yield* mgr.remove("app.example.com")
       assert.strictEqual(deletedPath, "/zones/zone-1/dns_records/dns-1")
     }).pipe(
       Effect.provide(testLayer({
@@ -125,7 +161,7 @@ describe("DnsManager (Effect)", () => {
     let deleteCalled = false
     return Effect.gen(function* () {
       const mgr = yield* DnsManager
-      yield* mgr.remove("tunnel-1", "app.example.com")
+      yield* mgr.remove("app.example.com")
       assert.isFalse(deleteCalled)
     }).pipe(
       Effect.provide(testLayer({
@@ -136,6 +172,47 @@ describe("DnsManager (Effect)", () => {
           return Effect.succeed([])
         },
         del: () => { deleteCalled = true; return Effect.succeed(null) },
+      })),
+    )
+  })
+
+  it.effect("removeManaged deletes only SDK-owned records marked for cleanup", () => {
+    let deletedPaths: string[] = []
+    return Effect.gen(function* () {
+      const mgr = yield* DnsManager
+      yield* mgr.removeManaged("tunnel-1")
+      assert.deepStrictEqual(deletedPaths, ["/zones/z1/dns_records/owned"])
+    }).pipe(
+      Effect.provide(testLayer({
+        paginate: () =>
+          Stream.fromArray([
+            { id: "z1", name: "example.com", status: "active" },
+            { id: "z2", name: "other.com", status: "active" },
+          ]),
+        get: (path) => {
+          if (path === "/zones/z1/dns_records") {
+            return Effect.succeed([
+              {
+                id: "owned", name: "app.example.com", type: "CNAME",
+                content: "tunnel-1.cfargotunnel.com", proxied: true, ttl: 1,
+                comment: "Managed by tunnels-sdk; tunnel=tunnel-1; cleanup=true",
+              },
+              {
+                id: "manual", name: "manual.example.com", type: "CNAME",
+                content: "tunnel-1.cfargotunnel.com", proxied: true, ttl: 1,
+              },
+            ])
+          }
+          if (path === "/zones/z2/dns_records") {
+            return Effect.succeed([{
+              id: "kept", name: "kept.other.com", type: "CNAME",
+              content: "tunnel-1.cfargotunnel.com", proxied: true, ttl: 1,
+              comment: "Managed by tunnels-sdk; tunnel=tunnel-1; cleanup=false",
+            }])
+          }
+          return Effect.succeed([])
+        },
+        del: (path) => { deletedPaths.push(path); return Effect.succeed(null) },
       })),
     )
   })

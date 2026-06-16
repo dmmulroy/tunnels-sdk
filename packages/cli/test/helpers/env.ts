@@ -5,13 +5,20 @@
  *   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, CFT_TEST_ZONE
  */
 
+/**
+ * Required Cloudflare environment values for CLI tests.
+ */
 export interface TestEnv {
   readonly accountId: string
   readonly apiToken: string
   readonly testZone: string
 }
 
-/** Read env vars or return null if any are missing */
+/**
+ * Reads Cloudflare test environment variables.
+ *
+ * @returns Test environment values, or null when any required value is missing.
+ */
 export function getTestEnv(): TestEnv | null {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID
   const apiToken = process.env.CLOUDFLARE_API_TOKEN
@@ -21,13 +28,18 @@ export function getTestEnv(): TestEnv | null {
   return { accountId, apiToken, testZone }
 }
 
-/** Returns true if auth env vars are present */
+/**
+ * Checks whether Cloudflare auth environment variables are present.
+ *
+ * @returns True when all required auth values are configured.
+ */
 export function hasAuth(): boolean {
   return getTestEnv() !== null
 }
 
 /**
- * Strip all auth env vars from the environment.
+ * Environment override that strips all auth variables.
+ *
  * Useful for testing missing-auth error paths.
  */
 export const NO_AUTH_ENV = {

@@ -1,10 +1,16 @@
 import { Option, Schema } from "effect"
 
+/**
+ * Generic SDK error for validation and orchestration failures.
+ */
 export class TunnelSdkError extends Schema.TaggedErrorClass<TunnelSdkError>()(
   "TunnelSdkError",
   { message: Schema.String, cause: Schema.optional(Schema.Defect) }
 ) {}
 
+/**
+ * Cloudflare API error response with status and error details.
+ */
 export class TunnelApiError extends Schema.TaggedErrorClass<TunnelApiError>()(
   "TunnelApiError",
   {
@@ -15,6 +21,9 @@ export class TunnelApiError extends Schema.TaggedErrorClass<TunnelApiError>()(
   }
 ) {}
 
+/**
+ * Authentication or authorization failure from Cloudflare.
+ */
 export class TunnelAuthError extends Schema.TaggedErrorClass<TunnelAuthError>()(
   "TunnelAuthError",
   {
@@ -26,11 +35,17 @@ export class TunnelAuthError extends Schema.TaggedErrorClass<TunnelAuthError>()(
   }
 ) {}
 
+/**
+ * Error raised when a tunnel name or ID cannot be found.
+ */
 export class TunnelNotFoundError extends Schema.TaggedErrorClass<TunnelNotFoundError>()(
   "TunnelNotFoundError",
   { tunnelRef: Schema.String }
 ) {}
 
+/**
+ * Runtime error emitted while starting or supervising cloudflared.
+ */
 export class TunnelProcessError extends Schema.TaggedErrorClass<TunnelProcessError>()(
   "TunnelProcessError",
   {
@@ -40,11 +55,17 @@ export class TunnelProcessError extends Schema.TaggedErrorClass<TunnelProcessErr
   }
 ) {}
 
+/**
+ * Error raised while locating, downloading, or installing cloudflared.
+ */
 export class BinaryInstallError extends Schema.TaggedErrorClass<BinaryInstallError>()(
   "BinaryInstallError",
   { message: Schema.String, cause: Schema.optional(Schema.Defect) }
 ) {}
 
+/**
+ * Error raised when tunnel configuration fails schema or semantic validation.
+ */
 export class ConfigValidationError extends Schema.TaggedErrorClass<ConfigValidationError>()(
   "ConfigValidationError",
   {

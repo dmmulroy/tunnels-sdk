@@ -34,6 +34,9 @@ const logout = Command.make("logout", {}, () =>
   })
 ).pipe(Command.withDescription("Log out"))
 
+/**
+ * CLI command group for authentication management.
+ */
 export const auth = Command.make("auth").pipe(
   Command.withDescription("Authentication management"),
   Command.withSubcommands([login, status, logout])

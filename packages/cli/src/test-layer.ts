@@ -4,6 +4,9 @@ import { CliOutput } from "effect/unstable/cli"
 import { ChildProcessSpawner } from "effect/unstable/process"
 import { OutputContext, defaultOutputContext } from "./output.js"
 
+/**
+ * Shared test layer for CLI command tests.
+ */
 export const TestLayer = Layer.mergeAll(
   TestConsole.layer,
   FileSystem.layerNoop({}),

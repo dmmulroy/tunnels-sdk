@@ -203,12 +203,13 @@ describe("Effect TunnelConfig", () => {
             },
             { service: "http_status:404" },
           ],
-          dns: { auto: true, cleanup: true },
+          dns: { auto: true, cleanup: true, overwrite: true },
           routes: [{ network: "10.0.0.0/8", vnet: "prod" }],
           warpRouting: { enabled: true },
         })
         assert.strictEqual(config.tunnel, "my-app")
         assert.strictEqual(config.dns?.auto, true)
+        assert.strictEqual(config.dns?.overwrite, true)
         assert.strictEqual(config.warpRouting?.enabled, true)
       }),
     )

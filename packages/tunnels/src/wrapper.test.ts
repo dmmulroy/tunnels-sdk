@@ -1,13 +1,19 @@
-import { describe, it, expect, afterEach, vi } from "vitest"
-import { Effect, Layer, ManagedRuntime, Stream } from "effect"
+import { describe, it, expect } from "vitest"
+import { Effect, Layer, Stream } from "effect"
+import { TunnelClient, expose } from "./wrapper.js"
+import * as idx from "./index.js"
 import {
   TestLayer,
   VNetManager,
   VNet,
   TunnelOperations,
   TunnelInfo,
-  TunnelConnection,
-  CloudflaredBinary,
+  IngressManager,
+  DnsManager,
+  RouteManager,
+  IngressRule,
+  DnsRecord,
+  Route,
 } from "./effect/index.js"
 
 // We test the wrapper using TestLayer (stubbed services) instead of LiveLayer
@@ -15,7 +21,6 @@ import {
 
 describe("TunnelClient wrapper", () => {
   it("_fromLayer creates with sub-clients", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
     const client = TunnelClient._fromLayer(TestLayer)
 
     expect(client.tunnels).toBeDefined()
@@ -29,7 +34,6 @@ describe("TunnelClient wrapper", () => {
   })
 
   it("public constructor creates without throwing", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
     // Just verify construction works — the runtime isn't used until a method is called
     const client = new TunnelClient({
       accountId: "test-account",
@@ -46,7 +50,6 @@ describe("TunnelClient wrapper", () => {
   })
 
   it("sub-client list methods return arrays via TestLayer stubs", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
     const client = TunnelClient._fromLayer(TestLayer)
 
     expect(await client.vnets.list()).toEqual([])
@@ -58,8 +61,6 @@ describe("TunnelClient wrapper", () => {
   })
 
   it("delegates to overridden services in custom layer", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
-
     const fakeVNet = new VNet({
       id: "vnet-1",
       name: "my-vnet",
@@ -91,8 +92,6 @@ describe("TunnelClient wrapper", () => {
   })
 
   it("tunnels.create() delegates and returns TunnelInfo", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
-
     const fakeTunnel = new TunnelInfo({
       id: "abc-123",
       name: "test-tunnel",
@@ -107,6 +106,7 @@ describe("TunnelClient wrapper", () => {
       TunnelOperations,
       TunnelOperations.of({
         create: () => Effect.succeed(fakeTunnel),
+        for: () => Effect.succeed(fakeTunnel),
         list: () => Effect.succeed([fakeTunnel]),
         listAll: () => Stream.fromArray([fakeTunnel]),
         get: () => Effect.succeed(fakeTunnel),
@@ -138,9 +138,87 @@ describe("TunnelClient wrapper", () => {
     await client.dispose()
   })
 
-  it("tunnels.listAll() yields items via async generator", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
+  it("tunnels.for() returns an existing tunnel by name", async () => {
+    const fakeTunnel = new TunnelInfo({
+      id: "abc-123",
+      name: "test-tunnel",
+      status: "healthy",
+      createdAt: "2024-01-01T00:00:00Z",
+      deletedAt: null,
+      connections: [],
+      remoteConfig: true,
+    })
+    let createCalled = false
 
+    const opsOverride = Layer.succeed(
+      TunnelOperations,
+      TunnelOperations.of({
+        create: () => {
+          createCalled = true
+          return Effect.succeed(fakeTunnel)
+        },
+        for: () => Effect.succeed(fakeTunnel),
+        list: () => Effect.succeed([fakeTunnel]),
+        listAll: () => Stream.empty,
+        get: () => Effect.die("not needed"),
+        del: () => Effect.die("not needed"),
+        getToken: () => Effect.die("not needed"),
+        refresh: () => Effect.die("not needed"),
+      }),
+    )
+
+    const client = TunnelClient._fromLayer(Layer.merge(TestLayer, opsOverride))
+    const tunnel = await client.tunnels.for("test-tunnel", { dns: { auto: true } })
+
+    expect(tunnel.id).toBe("abc-123")
+    expect(createCalled).toBe(false)
+
+    await client.dispose()
+  })
+
+  it("tunnels.for() creates a missing tunnel with create options", async () => {
+    const fakeTunnel = new TunnelInfo({
+      id: "abc-123",
+      name: "test-tunnel",
+      status: "healthy",
+      createdAt: "2024-01-01T00:00:00Z",
+      deletedAt: null,
+      connections: [],
+      remoteConfig: true,
+    })
+    const createOptions = {
+      ingress: [new IngressRule({ hostname: "app.example.com", service: "http://localhost:3000" })],
+      dns: { auto: true },
+    }
+    let createdWith: { name: string; options: typeof createOptions | undefined } | undefined
+
+    const opsOverride = Layer.succeed(
+      TunnelOperations,
+      TunnelOperations.of({
+        create: () => Effect.die("not needed"),
+        for: (name, options) => {
+          createdWith = { name, options: options as typeof createOptions }
+          return Effect.succeed(fakeTunnel)
+        },
+        list: () => Effect.succeed([]),
+        listAll: () => Stream.empty,
+        get: () => Effect.die("not needed"),
+        del: () => Effect.die("not needed"),
+        getToken: () => Effect.die("not needed"),
+        refresh: () => Effect.die("not needed"),
+      }),
+    )
+
+    const client = TunnelClient._fromLayer(Layer.merge(TestLayer, opsOverride))
+    const tunnel = await client.tunnels.for("test-tunnel", createOptions)
+
+    expect(tunnel.id).toBe("abc-123")
+    expect(createdWith).toEqual({ name: "test-tunnel", options: createOptions })
+
+    await client.dispose()
+  })
+
+  it("tunnels.listAll() yields items via async generator", async () => {
     const t1 = new TunnelInfo({
       id: "t1",
       name: "first",
@@ -164,6 +242,7 @@ describe("TunnelClient wrapper", () => {
       TunnelOperations,
       TunnelOperations.of({
         create: () => Effect.die("not needed"),
+        for: () => Effect.die("not needed"),
         list: () => Effect.die("not needed"),
         listAll: () => Stream.fromArray([t1, t2]),
         get: () => Effect.die("not needed"),
@@ -188,7 +267,6 @@ describe("TunnelClient wrapper", () => {
   })
 
   it("errors from services surface as rejected promises", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
     // TestLayer stubs TunnelOperations.create as Effect.die("not stubbed")
     const client = TunnelClient._fromLayer(TestLayer)
 
@@ -198,7 +276,6 @@ describe("TunnelClient wrapper", () => {
   })
 
   it("dispose() cleans up the runtime", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
     const client = TunnelClient._fromLayer(TestLayer)
     
     // Should not throw
@@ -209,10 +286,6 @@ describe("TunnelClient wrapper", () => {
   })
 
   it("ingress/dns/routes sub-clients delegate correctly", async () => {
-    const { TunnelClient } = await import("./wrapper.js")
-    const { IngressManager, DnsManager, RouteManager, IngressRule, DnsRecord, Route } =
-      await import("./effect/index.js")
-
     const fakeRule = new IngressRule({
       hostname: "app.example.com",
       service: "http://localhost:3000",
@@ -243,6 +316,7 @@ describe("TunnelClient wrapper", () => {
         DnsManager.of({
           ensure: () => Effect.succeed(void 0),
           remove: () => Effect.succeed(void 0),
+          removeManaged: () => Effect.succeed(void 0),
           list: () => Effect.succeed([fakeDns]),
         }),
       ),
@@ -288,14 +362,12 @@ describe("TunnelClient wrapper", () => {
 
 describe("expose() wrapper", () => {
   it("exports the expose function", async () => {
-    const { expose } = await import("./wrapper.js")
     expect(typeof expose).toBe("function")
   })
 })
 
 describe("index.ts re-exports", () => {
   it("exports TunnelClient and expose from index", async () => {
-    const idx = await import("./index.js")
     expect(idx.TunnelClient).toBeDefined()
     expect(typeof idx.expose).toBe("function")
     expect(typeof idx.parseConfig).toBe("function")
@@ -304,8 +376,7 @@ describe("index.ts re-exports", () => {
   })
 
   it("TunnelClient from index works the same as from wrapper", async () => {
-    const { TunnelClient } = await import("./index.js")
-    const client = new TunnelClient({
+    const client = new idx.TunnelClient({
       accountId: "test",
       apiToken: "test-token",
     })

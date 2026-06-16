@@ -28,11 +28,13 @@ const stubOps = (overrides: Partial<TunnelOperations["Service"]> = {}) =>
     TunnelOperations,
     TunnelOperations.of({
       create: () => Effect.succeed(fakeTunnel),
+      for: () => Effect.succeed(fakeTunnel),
       list: () => Effect.succeed([fakeTunnel]),
       get: () => Effect.succeed(fakeTunnel),
       del: () => Effect.void,
       getToken: () => Effect.succeed("test-token"),
       refresh: () => Effect.succeed(fakeTunnel),
+      listAll: () => Stream.fromArray([fakeTunnel]),
       ...overrides,
     }),
   )
