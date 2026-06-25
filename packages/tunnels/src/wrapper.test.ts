@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { Effect, Layer, Stream } from "effect"
-import { TunnelClient, expose } from "./wrapper.js"
+import { EffectAuthProvider, TunnelClient, expose } from "./wrapper.js"
 import * as idx from "./index.js"
 import {
   TestLayer,
@@ -14,6 +14,7 @@ import {
   IngressRule,
   DnsRecord,
   Route,
+  makeApiTokenAuth,
 } from "./effect/index.js"
 
 // We test the wrapper using TestLayer (stubbed services) instead of LiveLayer
@@ -33,11 +34,19 @@ describe("TunnelClient wrapper", () => {
     await client.dispose()
   })
 
+  it("EffectAuthProvider adapts Effect auth to the async provider interface", async () => {
+    const provider = new EffectAuthProvider(makeApiTokenAuth("test-token"))
+
+    await expect(provider.getAccessToken({ minTTLMillis: 60_000 })).resolves.toBe("test-token")
+    await expect(provider.refresh()).resolves.toMatchObject({ accessToken: "test-token" })
+    await expect(provider.revoke()).resolves.toBeUndefined()
+  })
+
   it("public constructor creates without throwing", async () => {
     // Just verify construction works — the runtime isn't used until a method is called
     const client = new TunnelClient({
       accountId: "test-account",
-      apiToken: "test-token",
+      authProvider: new EffectAuthProvider(makeApiTokenAuth("test-token")),
     })
 
     expect(client.tunnels).toBeDefined()
@@ -378,7 +387,7 @@ describe("index.ts re-exports", () => {
   it("TunnelClient from index works the same as from wrapper", async () => {
     const client = new idx.TunnelClient({
       accountId: "test",
-      apiToken: "test-token",
+      authProvider: new idx.EffectAuthProvider(idx.makeApiTokenAuth("test-token")),
     })
     expect(client.tunnels).toBeDefined()
     expect(client.ingress).toBeDefined()

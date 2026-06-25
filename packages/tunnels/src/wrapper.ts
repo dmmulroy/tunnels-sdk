@@ -1,6 +1,9 @@
-import { Effect, Exit, Layer, ManagedRuntime, Redacted, Scope, Stream } from "effect";
+import { Effect, Exit, Layer, ManagedRuntime, Scope, Stream } from "effect";
 import {
+  AuthError,
+  AuthTokenSet as EffectAuthTokenSet,
   CloudflareApiConfig,
+  CloudflareAuth,
   TunnelOperations as TunnelOpsService,
   IngressManager as IngressService,
   DnsManager as DnsService,
@@ -21,6 +24,7 @@ import type {
   CreateTunnelOptions,
   TunnelListOptions,
   DeleteOptions,
+  CloudflareAuthService,
 } from "./effect/index.js";
 
 // ---------------------------------------------------------------------------
@@ -71,11 +75,67 @@ export {
 /**
  * Options for constructing a high-level tunnel client.
  */
+export interface AuthTokenSet {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+  scopes?: string[];
+}
+
+export interface CloudflareAuthProvider {
+  getAccessToken(options?: { minTTLMillis?: number; }): Promise<string>;
+  refresh(): Promise<AuthTokenSet>;
+  revoke?(): Promise<void>;
+}
+
+export class EffectAuthProvider implements CloudflareAuthProvider {
+  constructor(private readonly auth: CloudflareAuthService) { }
+
+  getAccessToken(options?: { minTTLMillis?: number; }): Promise<string> {
+    return Effect.runPromise(this.auth.getAccessToken(options));
+  }
+
+  async refresh(): Promise<AuthTokenSet> {
+    const tokens = await Effect.runPromise(this.auth.refresh());
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      scopes: tokens.scopes ? [...tokens.scopes] : undefined,
+    };
+  }
+
+  revoke(): Promise<void> {
+    return Effect.runPromise(this.auth.revoke());
+  }
+}
+
 export interface TunnelClientOptions {
   accountId: string;
-  apiToken: string;
+  authProvider: CloudflareAuthProvider;
   baseUrl?: string;
 }
+
+const effectAuthFromProvider = (authProvider: CloudflareAuthProvider): CloudflareAuthService =>
+  CloudflareAuth.of({
+    getAccessToken: (options) =>
+      Effect.tryPromise({
+        try: () => authProvider.getAccessToken(options),
+        catch: (cause) => new AuthError({ message: "Auth provider failed to get an access token.", cause }),
+      }),
+    refresh: () =>
+      Effect.tryPromise({
+        try: async () => new EffectAuthTokenSet(await authProvider.refresh()),
+        catch: (cause) => new AuthError({ message: "Auth provider failed to refresh.", cause }),
+      }),
+    revoke: () =>
+      authProvider.revoke
+        ? Effect.tryPromise({
+            try: () => authProvider.revoke!(),
+            catch: (cause) => new AuthError({ message: "Auth provider failed to revoke.", cause }),
+          })
+        : Effect.void,
+  });
 
 // ---------------------------------------------------------------------------
 // Runtime type — the context provided by LiveLayer
@@ -427,10 +487,11 @@ export class TunnelClient {
   constructor(options: TunnelClientOptions) {
     const config = new CloudflareApiConfig({
       accountId: options.accountId,
-      apiToken: Redacted.make(options.apiToken),
       baseUrl: options.baseUrl,
     });
-    this._runtime = ManagedRuntime.make(LiveLayer(config));
+    this._runtime = ManagedRuntime.make(
+      LiveLayer(config, effectAuthFromProvider(options.authProvider)),
+    );
     this.tunnels = new TunnelClientTunnels(this._runtime);
     this.ingress = new TunnelClientIngress(this._runtime);
     this.dns = new TunnelClientDns(this._runtime);

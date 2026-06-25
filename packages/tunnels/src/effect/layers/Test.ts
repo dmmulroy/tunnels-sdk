@@ -1,5 +1,6 @@
 import { Effect, Layer, Stream } from "effect"
 import { CloudflareApi } from "../services/CloudflareApi.js"
+import { CloudflareAuth, makeApiTokenAuth } from "../services/CloudflareAuth.js"
 import { TunnelOperations } from "../services/TunnelOperations.js"
 import { IngressManager } from "../services/IngressManager.js"
 import { DnsManager } from "../services/DnsManager.js"
@@ -16,6 +17,7 @@ const die = (msg: string) => Effect.die(new Error(msg))
  * Override individual services with `Layer.provide` to inject test data.
  */
 export const TestLayer = Layer.mergeAll(
+  Layer.succeed(CloudflareAuth, makeApiTokenAuth("test-api-token")),
   Layer.succeed(
     CloudflareApi,
     CloudflareApi.of({

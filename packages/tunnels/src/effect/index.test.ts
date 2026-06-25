@@ -1,5 +1,5 @@
 import { describe, it, assert } from "@effect/vitest"
-import { Effect, Redacted } from "effect"
+import { Effect } from "effect"
 import {
   TunnelOperations,
   IngressManager,
@@ -10,6 +10,8 @@ import {
   TunnelProcessService,
   CloudflareApi,
   CloudflareApiConfig,
+  CloudflareAuth,
+  makeApiTokenAuth,
   TestLayer,
   LiveLayer,
 } from "./index.js"
@@ -33,6 +35,8 @@ describe("effect/index.ts barrel exports", () => {
       assert.isDefined(process)
       const api = yield* CloudflareApi
       assert.isDefined(api)
+      const auth = yield* CloudflareAuth
+      assert.isDefined(auth)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -41,8 +45,8 @@ describe("effect/index.ts barrel exports", () => {
     const _layer = LiveLayer(
       new CloudflareApiConfig({
         accountId: "test",
-        apiToken: Redacted.make("test-token"),
       }),
+      makeApiTokenAuth("test-token"),
     )
     assert.isDefined(_layer)
   })

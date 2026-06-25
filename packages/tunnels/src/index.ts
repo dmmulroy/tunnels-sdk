@@ -5,11 +5,22 @@
 /**
  * High-level async/await tunnel client and quick expose helper.
  */
-export { TunnelClient, expose } from "./wrapper.js"
+export { EffectAuthProvider, TunnelClient, expose } from "./wrapper.js"
+export {
+  AuthError,
+  AuthTokenSet as EffectAuthTokenSet,
+  CloudflareAuth,
+  makeApiTokenAuth,
+} from "./effect/index.js"
 /**
  * High-level client options and quick expose handle types.
  */
-export type { TunnelClientOptions, ExposedTunnel } from "./wrapper.js"
+export type {
+  AuthTokenSet,
+  CloudflareAuthProvider,
+  TunnelClientOptions,
+  ExposedTunnel,
+} from "./wrapper.js"
 
 // Re-export types from Effect SDK (no Effect knowledge required for consumers)
 /**

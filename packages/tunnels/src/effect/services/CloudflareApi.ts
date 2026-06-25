@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Redacted, Schedule, Schema, ServiceMap, Stream } from "effect"
+import { Effect, Layer, Option, Schedule, Schema, ServiceMap, Stream } from "effect"
 import { flow } from "effect/Function"
 import {
   HttpClient,
@@ -7,6 +7,7 @@ import {
   FetchHttpClient,
 } from "effect/unstable/http"
 import { TunnelApiError, TunnelAuthError } from "../errors.js"
+import { CloudflareAuth, type CloudflareAuthService } from "./CloudflareAuth.js"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -17,7 +18,6 @@ import { TunnelApiError, TunnelAuthError } from "../errors.js"
  */
 export class CloudflareApiConfig extends Schema.Class<CloudflareApiConfig>("CloudflareApiConfig")({
   accountId: Schema.NonEmptyString,
-  apiToken: Schema.Redacted(Schema.NonEmptyString),
   baseUrl: Schema.String.pipe(
     Schema.withConstructorDefault(() => Option.some("https://api.cloudflare.com/client/v4")),
   ),
@@ -50,6 +50,14 @@ const toSdkError = (status: number, errors: Array<{ code: number; message: strin
   }
   return new TunnelApiError({ status, errors })
 }
+
+const authToTunnelAuthError = (error: unknown) =>
+  new TunnelAuthError({
+    message:
+      error && typeof error === "object" && "message" in error
+        ? String(error.message)
+        : "Authentication failed. Check your API token and account ID.",
+  })
 
 const recoverError = (error: any): Effect.Effect<never, TunnelApiError | TunnelAuthError> => {
   if (error?._tag === "TunnelApiError" || error?._tag === "TunnelAuthError") {
@@ -115,14 +123,11 @@ export class CloudflareApi extends ServiceMap.Service<
     return Layer.effect(
       CloudflareApi,
       Effect.gen(function* () {
+        const auth = yield* CloudflareAuth
         const client = (yield* HttpClient.HttpClient).pipe(
           HttpClient.mapRequest(
             flow(
               HttpClientRequest.prependUrl(config.baseUrl),
-              HttpClientRequest.setHeader(
-                "Authorization",
-                `Bearer ${Redacted.value(config.apiToken)}`,
-              ),
               HttpClientRequest.acceptJson,
             ),
           ),
@@ -131,6 +136,54 @@ export class CloudflareApi extends ServiceMap.Service<
             times: 3,
           }),
         )
+
+        const unauthorized = { _tag: "Unauthorized" } as const
+
+        const executeWithAuth = (
+          makeRequest: () => HttpClientRequest.HttpClientRequest,
+        ): Effect.Effect<HttpClientResponse.HttpClientResponse, ApiErrors> => {
+          const executeOnce: Effect.Effect<
+            HttpClientResponse.HttpClientResponse,
+            ApiErrors | typeof unauthorized
+          > = Effect.gen(function* () {
+            const token = yield* auth
+              .getAccessToken({ minTTLMillis: 60_000 })
+              .pipe(Effect.mapError(authToTunnelAuthError))
+            const request = makeRequest().pipe(
+              HttpClientRequest.setHeader("Authorization", `Bearer ${token}`),
+            )
+            const response = yield* client.execute(request).pipe(
+              Effect.catch((error: any): Effect.Effect<never, ApiErrors | typeof unauthorized> => {
+                if (error?._tag === "ResponseError" && error.response.status === 401) {
+                  return Effect.fail(unauthorized)
+                }
+                return recoverError(error)
+              }),
+            )
+            if (response.status === 401) {
+              return yield* Effect.fail(unauthorized)
+            }
+            return response
+          })
+
+          return executeOnce.pipe(
+            Effect.catch((error): Effect.Effect<HttpClientResponse.HttpClientResponse, ApiErrors> => {
+              if (error === unauthorized) {
+                return auth.refresh().pipe(
+                  Effect.mapError(authToTunnelAuthError),
+                  Effect.flatMap(() => executeOnce),
+                  Effect.catch(
+                    (retryError): Effect.Effect<HttpClientResponse.HttpClientResponse, ApiErrors> =>
+                      retryError === unauthorized
+                        ? Effect.fail(new TunnelAuthError({}))
+                        : Effect.fail(retryError as ApiErrors),
+                  ),
+                )
+              }
+              return Effect.fail(error as ApiErrors)
+            }),
+          )
+        }
 
         /** Parse CF API response envelope, extract .result or fail */
         const extractResult = <T>(
@@ -151,9 +204,9 @@ export class CloudflareApi extends ServiceMap.Service<
           path: string,
           params?: Record<string, string>,
         ): Effect.fn.Return<T, ApiErrors> {
-          const response = yield* client
-            .get(path, params ? { urlParams: params } : undefined)
-            .pipe(Effect.catch(recoverError))
+          const response = yield* executeWithAuth(() =>
+            HttpClientRequest.get(path, params ? { urlParams: params } : undefined),
+          )
           return yield* extractResult<T>(response)
         })
 
@@ -161,14 +214,11 @@ export class CloudflareApi extends ServiceMap.Service<
           path: string,
           body?: unknown,
         ): Effect.fn.Return<T, ApiErrors> {
-          const request =
+          const response = yield* executeWithAuth(() =>
             body !== undefined
-              ? HttpClientRequest.post(path).pipe(
-                  HttpClientRequest.bodyJsonUnsafe(body),
-                  client.execute,
-                )
-              : client.post(path)
-          const response = yield* request.pipe(Effect.catch(recoverError))
+              ? HttpClientRequest.post(path).pipe(HttpClientRequest.bodyJsonUnsafe(body))
+              : HttpClientRequest.post(path),
+          )
           return yield* extractResult<T>(response)
         })
 
@@ -176,14 +226,11 @@ export class CloudflareApi extends ServiceMap.Service<
           path: string,
           body?: unknown,
         ): Effect.fn.Return<T, ApiErrors> {
-          const request =
+          const response = yield* executeWithAuth(() =>
             body !== undefined
-              ? HttpClientRequest.put(path).pipe(
-                  HttpClientRequest.bodyJsonUnsafe(body),
-                  client.execute,
-                )
-              : client.put(path)
-          const response = yield* request.pipe(Effect.catch(recoverError))
+              ? HttpClientRequest.put(path).pipe(HttpClientRequest.bodyJsonUnsafe(body))
+              : HttpClientRequest.put(path),
+          )
           return yield* extractResult<T>(response)
         })
 
@@ -191,9 +238,9 @@ export class CloudflareApi extends ServiceMap.Service<
           path: string,
           params?: Record<string, string>,
         ): Effect.fn.Return<T, ApiErrors> {
-          const response = yield* client
-            .del(path, params ? { urlParams: params } : undefined)
-            .pipe(Effect.catch(recoverError))
+          const response = yield* executeWithAuth(() =>
+            HttpClientRequest.delete(path, params ? { urlParams: params } : undefined),
+          )
           return yield* extractResult<T>(response)
         })
 
@@ -202,11 +249,11 @@ export class CloudflareApi extends ServiceMap.Service<
           params?: Record<string, string>,
         ): Stream.Stream<T, ApiErrors> =>
           Stream.paginate(1, (page: number) =>
-            client
-              .get(path, {
+            executeWithAuth(() =>
+              HttpClientRequest.get(path, {
                 urlParams: { ...params, page: String(page), per_page: "50" },
-              })
-              .pipe(
+              }),
+            ).pipe(
                 Effect.flatMap((response) => response.json),
                 Effect.flatMap((data) => {
                   const body = data as unknown as CfApiResponse<T[]>
@@ -250,7 +297,10 @@ export class CloudflareApi extends ServiceMap.Service<
    * @param config Cloudflare account and authentication configuration.
    * @returns A layer that provides `CloudflareApi` and its HTTP client.
    */
-  static layerLive(config: CloudflareApiConfig) {
-    return CloudflareApi.layer(config).pipe(Layer.provide(FetchHttpClient.layer))
+  static layerLive(config: CloudflareApiConfig, auth: CloudflareAuthService) {
+    return CloudflareApi.layer(config).pipe(
+      Layer.provide(FetchHttpClient.layer),
+      Layer.provide(Layer.succeed(CloudflareAuth, auth)),
+    )
   }
 }

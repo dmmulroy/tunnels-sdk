@@ -1,4 +1,4 @@
-import { Effect, Exit, Layer, Redacted, Ref, Scope, Stream } from "effect"
+import { Effect, Exit, Layer, Ref, Scope, Stream } from "effect"
 import {
   TunnelOperations,
   IngressManager,
@@ -9,11 +9,13 @@ import {
   CloudflaredBinary,
   CloudflareApiConfig,
   LiveLayer as SdkLiveLayer,
+  makeApiTokenAuth,
   expose as sdkExpose,
   type TunnelInfo as SdkTunnelInfo,
   type RunningTunnel,
   type LogEntry,
   IngressRule,
+  type CloudflareAuthService,
 } from "tunnels/effect"
 import { CliError } from "./errors.js"
 import {
@@ -471,8 +473,8 @@ const AuthServiceStub = Layer.succeed(AuthService, {
  * @param config Cloudflare account and authentication configuration.
  * @returns A layer that provides CLI services.
  */
-export const LiveLayer = (config: CloudflareApiConfig) => {
-  const sdkLayer = SdkLiveLayer(config)
+export const LiveLayer = (config: CloudflareApiConfig, auth: CloudflareAuthService) => {
+  const sdkLayer = SdkLiveLayer(config, auth)
 
   const adapterLayers = Layer.mergeAll(
     QuickTunnelServiceLive,
@@ -561,7 +563,7 @@ export const LiveLayerFromEnv = () => {
   return LiveLayer(
     new CloudflareApiConfig({
       accountId,
-      apiToken: Redacted.make(apiToken),
     }),
+    makeApiTokenAuth(apiToken),
   )
 }

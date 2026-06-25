@@ -51,6 +51,13 @@ export {
  * Cloudflare API service and configuration schema.
  */
 export { CloudflareApi, CloudflareApiConfig } from "./services/CloudflareApi.js"
+export {
+  AuthError,
+  AuthTokenSet,
+  CloudflareAuth,
+  makeApiTokenAuth,
+} from "./services/CloudflareAuth.js"
+export type { CloudflareAuthService } from "./services/CloudflareAuth.js"
 /**
  * High-level named tunnel operations service.
  */

@@ -6,17 +6,8 @@
  * up in afterAll — even if the test throws.
  */
 
-import { Effect, Redacted } from "effect"
-import {
-  CloudflareApiConfig,
-  LiveLayer,
-  TunnelOperations,
-  DnsManager,
-  IngressManager,
-  RouteManager,
-  VNetManager,
-} from "../../src/effect/index.js"
-import { TunnelClient } from "../../src/wrapper.js"
+import { makeApiTokenAuth } from "../../src/effect/index.js"
+import { EffectAuthProvider, TunnelClient } from "../../src/wrapper.js"
 import { resourceName } from "./resource-name.js"
 import type { TestEnv } from "./env.js"
 
@@ -48,7 +39,7 @@ export interface TestContext {
 export function createTestContext(env: TestEnv): TestContext {
   const client = new TunnelClient({
     accountId: env.accountId,
-    apiToken: env.apiToken,
+    authProvider: new EffectAuthProvider(makeApiTokenAuth(env.apiToken)),
   })
 
   const tunnelIds: string[] = []

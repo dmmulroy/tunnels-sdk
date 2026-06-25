@@ -1,6 +1,7 @@
 import { Layer } from "effect"
 import { FetchHttpClient } from "effect/unstable/http"
 import { CloudflareApi, type CloudflareApiConfig } from "../services/CloudflareApi.js"
+import { CloudflareAuth, type CloudflareAuthService } from "../services/CloudflareAuth.js"
 import { TunnelOperations } from "../services/TunnelOperations.js"
 import { IngressManager } from "../services/IngressManager.js"
 import { DnsManager } from "../services/DnsManager.js"
@@ -15,10 +16,13 @@ import { CloudflaredBinary } from "../services/CloudflaredBinary.js"
  * @param config Cloudflare account and authentication configuration.
  * @returns A layer that provides the complete tunnel SDK service graph.
  */
-export const LiveLayer = (config: CloudflareApiConfig) => {
+export const LiveLayer = (config: CloudflareApiConfig, auth: CloudflareAuthService) => {
+  const authLayer = Layer.succeed(CloudflareAuth, auth)
+
   // CloudflareApi (with FetchHttpClient) is the root dependency
   const apiLayer = CloudflareApi.layer(config).pipe(
     Layer.provide(FetchHttpClient.layer),
+    Layer.provide(authLayer),
   )
 
   // Managers all depend on CloudflareApi

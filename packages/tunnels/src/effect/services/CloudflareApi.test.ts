@@ -1,5 +1,5 @@
 import { describe, it, assert } from "@effect/vitest"
-import { Effect, Layer, Redacted, Stream } from "effect"
+import { Effect, Layer, Stream } from "effect"
 import {
   HttpClient,
   HttpClientRequest,
@@ -7,6 +7,7 @@ import {
 } from "effect/unstable/http"
 import { TunnelApiError, TunnelAuthError } from "../errors.js"
 import { CloudflareApi, CloudflareApiConfig } from "./CloudflareApi.js"
+import { AuthTokenSet, CloudflareAuth, makeApiTokenAuth } from "./CloudflareAuth.js"
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -14,7 +15,6 @@ import { CloudflareApi, CloudflareApiConfig } from "./CloudflareApi.js"
 
 const testConfig = new CloudflareApiConfig({
   accountId: "test-account-id",
-  apiToken: Redacted.make("test-api-token"),
   baseUrl: "https://api.test.com/v4",
 })
 
@@ -62,7 +62,10 @@ function testLayer(
     url: URL,
   ) => Response,
 ) {
-  return CloudflareApi.layer(testConfig).pipe(Layer.provide(mockHttpClient(handler)))
+  return CloudflareApi.layer(testConfig).pipe(
+    Layer.provide(mockHttpClient(handler)),
+    Layer.provide(Layer.succeed(CloudflareAuth, makeApiTokenAuth("test-api-token"))),
+  )
 }
 
 describe("CloudflareApi", () => {
@@ -136,6 +139,44 @@ describe("CloudflareApi", () => {
   })
 
   describe("error handling", () => {
+    it.effect("refreshes auth and retries once after a 401", () => {
+      let currentToken = "expired-token"
+      let refreshCount = 0
+      const seenAuthHeaders: Array<string | undefined> = []
+      const auth = CloudflareAuth.of({
+        getAccessToken: () => Effect.succeed(currentToken),
+        refresh: () =>
+          Effect.sync(() => {
+            refreshCount++
+            currentToken = "retry-token"
+            return new AuthTokenSet({ accessToken: currentToken })
+          }),
+        revoke: () => Effect.void,
+      })
+
+      const layer = CloudflareApi.layer(testConfig).pipe(
+        Layer.provide(
+          mockHttpClient((req) => {
+            seenAuthHeaders.push((req.headers as any).authorization)
+            if (seenAuthHeaders.length === 1) {
+              return cfError(401, [{ code: 10000, message: "Expired token" }])
+            }
+            return cfSuccess({ ok: true })
+          }),
+        ),
+        Layer.provide(Layer.succeed(CloudflareAuth, auth)),
+      )
+
+      return Effect.gen(function* () {
+        const api = yield* CloudflareApi
+        const result = yield* api.get<{ ok: boolean }>("/test")
+
+        assert.deepStrictEqual(result, { ok: true })
+        assert.strictEqual(refreshCount, 1)
+        assert.deepStrictEqual(seenAuthHeaders, ["Bearer expired-token", "Bearer retry-token"])
+      }).pipe(Effect.provide(layer))
+    })
+
     it.effect("maps 401 to TunnelAuthError", () =>
       Effect.gen(function* () {
         const api = yield* CloudflareApi
