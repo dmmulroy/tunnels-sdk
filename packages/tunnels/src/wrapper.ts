@@ -13,7 +13,14 @@ import {
   CloudflaredBinary,
   LiveLayer,
   expose as exposeEffect,
+  makeApiTokenAuth,
 } from "./effect/index.js";
+import {
+  parseConfig as parseConfigEffect,
+  parseConfigFromYaml as parseConfigFromYamlEffect,
+  parseConfigFromFile as parseConfigFromFileEffect,
+} from "./effect/config.js";
+import type { TunnelConfigOutput } from "./effect/config.js";
 import type {
   TunnelInfo,
   IngressRule,
@@ -58,15 +65,32 @@ export type {
   LogEntry,
 } from "./effect/index.js";
 
-// Re-export config validation
+// ---------------------------------------------------------------------------
+// Config parsing
+// ---------------------------------------------------------------------------
+
+export type { TunnelConfigOutput } from "./effect/config.js";
+
 /**
- * Tunnel configuration parsing helpers.
+ * Parses and validates a tunnel config object.
  */
-export {
-  parseConfig,
-  parseConfigFromYaml,
-  parseConfigFromFile,
-} from "./effect/config.js";
+export function parseConfig(input: unknown): TunnelConfigOutput {
+  return Effect.runSync(parseConfigEffect(input));
+}
+
+/**
+ * Parses and validates a YAML tunnel config string.
+ */
+export function parseConfigFromYaml(yaml: string): TunnelConfigOutput {
+  return Effect.runSync(parseConfigFromYamlEffect(yaml));
+}
+
+/**
+ * Reads, parses, and validates a tunnel config file.
+ */
+export function parseConfigFromFile(path: string): Promise<TunnelConfigOutput> {
+  return Effect.runPromise(parseConfigFromFileEffect(path));
+}
 
 // ---------------------------------------------------------------------------
 // Options
@@ -110,11 +134,23 @@ export class EffectAuthProvider implements CloudflareAuthProvider {
   }
 }
 
-export interface TunnelClientOptions {
+export interface TunnelClientApiTokenOptions {
   accountId: string;
+  apiToken: string;
+  authProvider?: never;
+  baseUrl?: string;
+}
+
+export interface TunnelClientAuthProviderOptions {
+  accountId: string;
+  apiToken?: never;
   authProvider: CloudflareAuthProvider;
   baseUrl?: string;
 }
+
+export type TunnelClientOptions =
+  | TunnelClientApiTokenOptions
+  | TunnelClientAuthProviderOptions;
 
 const effectAuthFromProvider = (authProvider: CloudflareAuthProvider): CloudflareAuthService =>
   CloudflareAuth.of({
@@ -130,7 +166,7 @@ const effectAuthFromProvider = (authProvider: CloudflareAuthProvider): Cloudflar
       Effect.tryPromise({
         try: async () => new EffectAuthTokenSet(await authProvider.refresh()),
         catch: (cause) => new AuthError({
-          message: "auth provider failed to refresh credentials\nhelp: refresh the token or use makeApiTokenAuth() for static API tokens",
+          message: "auth provider failed to refresh credentials\nhelp: refresh the token or pass apiToken for static API tokens",
           cause,
         }),
       }),
@@ -145,6 +181,11 @@ const effectAuthFromProvider = (authProvider: CloudflareAuthProvider): Cloudflar
           })
         : Effect.void,
   });
+
+const authFromOptions = (options: TunnelClientOptions): CloudflareAuthService =>
+  options.authProvider
+    ? effectAuthFromProvider(options.authProvider)
+    : makeApiTokenAuth(options.apiToken);
 
 // ---------------------------------------------------------------------------
 // Runtime type — the context provided by LiveLayer
@@ -499,7 +540,7 @@ export class TunnelClient {
       baseUrl: options.baseUrl,
     });
     this._runtime = ManagedRuntime.make(
-      LiveLayer(config, effectAuthFromProvider(options.authProvider)),
+      LiveLayer(config, authFromOptions(options)),
     );
     this.tunnels = new TunnelClientTunnels(this._runtime);
     this.ingress = new TunnelClientIngress(this._runtime);

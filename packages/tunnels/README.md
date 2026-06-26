@@ -4,8 +4,7 @@ TypeScript SDK for Cloudflare Tunnels.
 
 The default export is a plain async/await wrapper for tunnel metadata, ingress,
 DNS, private routes, virtual networks, config parsing, and anonymous quick
-tunnels. The advanced `tunnels/effect` export exposes the Effect services for
-process supervision and custom runtime composition.
+tunnels.
 
 ## Install
 
@@ -34,17 +33,12 @@ await tunnel.close()
 
 ## Authenticated Client
 
-The current wrapper accepts an auth provider. For a static Cloudflare API token,
-wrap `makeApiTokenAuth()` with `EffectAuthProvider`.
-
 ```ts
-import { EffectAuthProvider, TunnelClient, makeApiTokenAuth } from "tunnels"
+import { TunnelClient } from "tunnels"
 
 const client = new TunnelClient({
   accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-  authProvider: new EffectAuthProvider(
-    makeApiTokenAuth(process.env.CLOUDFLARE_API_TOKEN!),
-  ),
+  apiToken: process.env.CLOUDFLARE_API_TOKEN!,
 })
 ```
 
@@ -157,21 +151,19 @@ await client.routes.remove(tunnel.id, "10.0.0.0/8")
 
 ## Config Parsing
 
-Config parsing returns Effect values. Run them with `Effect.runSync`,
-`Effect.runPromise`, or the corresponding `Exit` helpers.
+Config parsing throws when validation fails. File parsing is async.
 
 ```ts
-import { Effect } from "effect"
-import { parseConfigFromYaml } from "tunnels"
+import { parseConfigFromFile, parseConfigFromYaml } from "tunnels"
 
-const config = Effect.runSync(
-  parseConfigFromYaml(`
+const config = parseConfigFromYaml(`
 ingress:
   - hostname: app.example.com
     service: http://localhost:3000
   - service: http_status:404
-`),
-)
+`)
+
+const fileConfig = await parseConfigFromFile("./tunnels.yaml")
 ```
 
 Validated fields include ingress ordering, catch-all behavior, hostname format,
@@ -181,38 +173,14 @@ service URL schemes, duplicate hostnames, CIDR syntax, and known
 ## Running Named Tunnels
 
 The async wrapper exposes tunnel tokens, but it does not currently return a
-runnable tunnel object. Use the Effect API for supervised `cloudflared` process
-management.
+runnable tunnel process object.
 
 ```ts
-import { Effect } from "effect"
-import {
-  CloudflareApiConfig,
-  LiveLayer,
-  TunnelOperations,
-  TunnelProcessService,
-  makeApiTokenAuth,
-} from "tunnels/effect"
+const tunnel = await client.tunnels.get("my-app")
+const token = await client.tunnels.getToken(tunnel.id)
 
-const config = new CloudflareApiConfig({
-  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-})
-
-const program = Effect.gen(function* () {
-  const tunnels = yield* TunnelOperations
-  const processes = yield* TunnelProcessService
-
-  const tunnel = yield* tunnels.get("my-app")
-  const token = yield* tunnels.getToken(tunnel.id)
-  const running = yield* processes.run(token, { logLevel: "info" })
-
-  yield* running.waitUntilHealthy
-}).pipe(
-  Effect.scoped,
-  Effect.provide(LiveLayer(config, makeApiTokenAuth(process.env.CLOUDFLARE_API_TOKEN!))),
-)
-
-await Effect.runPromise(program)
+// Pass the token to cloudflared on the host that should run the connector.
+console.log(token)
 ```
 
 ## Binary Management
@@ -229,27 +197,4 @@ await cloudflared.isInstalled()
 await cloudflared.install()
 await cloudflared.update()
 await cloudflared.remove()
-```
-
-## Effect API
-
-Use `tunnels/effect` when you want direct access to services, custom layers,
-Effect streams, process supervision, or test layers.
-
-```ts
-import { Effect } from "effect"
-import {
-  CloudflareApiConfig,
-  LiveLayer,
-  TunnelOperations,
-  makeApiTokenAuth,
-} from "tunnels/effect"
-
-const config = new CloudflareApiConfig({ accountId: "account-id" })
-
-const program = TunnelOperations.use((tunnels) => tunnels.list())
-
-const tunnels = await Effect.runPromise(
-  program.pipe(Effect.provide(LiveLayer(config, makeApiTokenAuth("api-token")))),
-)
 ```

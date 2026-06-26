@@ -1,10 +1,8 @@
-import { EffectAuthProvider, TunnelClient, makeApiTokenAuth } from "tunnels"
+import { TunnelClient } from "tunnels"
 
 const client = new TunnelClient({
   accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-  authProvider: new EffectAuthProvider(
-    makeApiTokenAuth(process.env.CLOUDFLARE_API_TOKEN!),
-  ),
+  apiToken: process.env.CLOUDFLARE_API_TOKEN!,
 })
 
 // Create with multiple services

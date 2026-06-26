@@ -4,8 +4,7 @@ TypeScript SDK for Cloudflare Tunnels.
 
 The default `tunnels` export is a plain async/await wrapper for tunnel metadata,
 ingress, DNS, private routes, virtual networks, config parsing, and anonymous
-quick tunnels. The advanced `tunnels/effect` export exposes the Effect services
-for process supervision, streams, and custom runtime composition.
+quick tunnels.
 
 ## Install
 
@@ -33,17 +32,12 @@ await tunnel.close()
 
 ## Authenticated Client
 
-The current wrapper accepts an auth provider. For a static Cloudflare API token,
-use `makeApiTokenAuth()` with `EffectAuthProvider`.
-
 ```ts
-import { EffectAuthProvider, TunnelClient, makeApiTokenAuth } from "tunnels"
+import { TunnelClient } from "tunnels"
 
 const client = new TunnelClient({
   accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-  authProvider: new EffectAuthProvider(
-    makeApiTokenAuth(process.env.CLOUDFLARE_API_TOKEN!),
-  ),
+  apiToken: process.env.CLOUDFLARE_API_TOKEN!,
 })
 ```
 
@@ -96,20 +90,19 @@ DNS is inferred from ingress hostnames by default during create. Disable it with
 
 ## Config Parsing
 
-Config parsing returns Effect values.
+Config parsing throws when validation fails. File parsing is async.
 
 ```ts
-import { Effect } from "effect"
-import { parseConfigFromYaml } from "tunnels"
+import { parseConfigFromFile, parseConfigFromYaml } from "tunnels"
 
-const config = Effect.runSync(
-  parseConfigFromYaml(`
+const config = parseConfigFromYaml(`
 ingress:
   - hostname: app.example.com
     service: http://localhost:3000
   - service: http_status:404
-`),
-)
+`)
+
+const fileConfig = await parseConfigFromFile("./tunnels.yaml")
 ```
 
 The parser validates ingress rules, catch-all behavior, duplicate hostnames,
@@ -118,38 +111,14 @@ service schemes, CIDR syntax, and known `originRequest` keys.
 ## Running Named Tunnels
 
 The async wrapper exposes tunnel tokens, but it does not currently return a
-runnable tunnel object. Use `tunnels/effect` for supervised `cloudflared`
-process management.
+runnable tunnel process object.
 
 ```ts
-import { Effect } from "effect"
-import {
-  CloudflareApiConfig,
-  LiveLayer,
-  TunnelOperations,
-  TunnelProcessService,
-  makeApiTokenAuth,
-} from "tunnels/effect"
+const tunnel = await client.tunnels.get("my-app")
+const token = await client.tunnels.getToken(tunnel.id)
 
-const config = new CloudflareApiConfig({
-  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-})
-
-const program = Effect.gen(function* () {
-  const tunnels = yield* TunnelOperations
-  const processes = yield* TunnelProcessService
-
-  const tunnel = yield* tunnels.get("my-app")
-  const token = yield* tunnels.getToken(tunnel.id)
-  const running = yield* processes.run(token, { logLevel: "info" })
-
-  yield* running.waitUntilHealthy
-}).pipe(
-  Effect.scoped,
-  Effect.provide(LiveLayer(config, makeApiTokenAuth(process.env.CLOUDFLARE_API_TOKEN!))),
-)
-
-await Effect.runPromise(program)
+// Pass the token to cloudflared on the host that should run the connector.
+console.log(token)
 ```
 
 ## Binary Management

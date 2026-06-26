@@ -6,8 +6,7 @@
  * up in afterAll — even if the test throws.
  */
 
-import { makeApiTokenAuth } from "../../src/effect/index.js"
-import { EffectAuthProvider, TunnelClient } from "../../src/wrapper.js"
+import { TunnelClient } from "../../src/wrapper.js"
 import { resourceName } from "./resource-name.js"
 import type { TestEnv } from "./env.js"
 
@@ -39,7 +38,7 @@ export interface TestContext {
 export function createTestContext(env: TestEnv): TestContext {
   const client = new TunnelClient({
     accountId: env.accountId,
-    authProvider: new EffectAuthProvider(makeApiTokenAuth(env.apiToken)),
+    apiToken: env.apiToken,
   })
 
   const tunnelIds: string[] = []

@@ -1,50 +1,42 @@
-import { Effect, Exit } from "effect"
 import { parseConfig, parseConfigFromYaml, parseConfigFromFile } from "tunnels"
 
 // --- Validate a config object ---
 
-const result = Effect.runSyncExit(
-  parseConfig({
+try {
+  const result = parseConfig({
     ingress: [
       { hostname: "app.example.com", service: "http://localhost:3000" },
       { service: "http_status:404" },
     ],
-  }),
-)
-
-if (Exit.isSuccess(result)) {
+  })
   console.log("Config is valid!")
-  console.log("Ingress rules:", result.value.ingress)
-} else {
-  console.error("Validation failed:", result.cause)
+  console.log("Ingress rules:", result.ingress)
+} catch (error) {
+  console.error("Validation failed:", error)
 }
 
 // --- Parse from YAML string ---
 
-const yamlResult = Effect.runSyncExit(
-  parseConfigFromYaml(`
+try {
+  const yamlResult = parseConfigFromYaml(`
 ingress:
   - hostname: app.example.com
     service: http://localhost:3000
   - service: http_status:404
-`),
-)
-
-if (Exit.isSuccess(yamlResult)) {
+`)
   console.log("YAML config parsed successfully")
-  console.log(`${yamlResult.value.ingress.length} ingress rules`)
+  console.log(`${yamlResult.ingress.length} ingress rules`)
+} catch (error) {
+  console.error("Failed to parse YAML:", error)
 }
 
 // --- Parse from a YAML file (async) ---
 
-const fileResult = await Effect.runPromiseExit(
-  parseConfigFromFile("./tunnels.yaml"),
-)
-
-if (Exit.isSuccess(fileResult)) {
-  console.log(`Loaded config with ${fileResult.value.ingress.length} ingress rules`)
-} else {
-  console.error("Failed to load config file")
+try {
+  const fileResult = await parseConfigFromFile("./tunnels.yaml")
+  console.log(`Loaded config with ${fileResult.ingress.length} ingress rules`)
+} catch (error) {
+  console.error("Failed to load config file:", error)
 }
 
 // --- Config validation catches issues like: ---

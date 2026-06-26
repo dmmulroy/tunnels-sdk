@@ -17,7 +17,7 @@ Nobody gives you the full picture. A modern tool treats the **full tunnel lifecy
 | Directory | Description |
 |-----------|-------------|
 | [`cli/`](./cli/README.md) | CLI docs for the current `tunnels` command surface |
-| [`lib/`](./lib/README.md) | SDK docs for the current async wrapper and Effect services |
+| [`lib/`](./lib/README.md) | SDK docs for the current async wrapper |
 
 ## Design Principles
 
@@ -40,5 +40,5 @@ Nobody gives you the full picture. A modern tool treats the **full tunnel lifecy
 
 - **Explicit Resource Management** — `await using t = await expose(3000)` — cleanup is automatic.
 - **Async iterators where exposed** — `listAll()` streams paginated tunnel metadata.
-- **Effect Schema config validation** — catch misconfig before deploy.
-- **Typed Effect services** — use `tunnels/effect` for process supervision, logs, and events.
+- **Config validation** — catch misconfig before deploy.
+- **Typed resource managers** — manage tunnels, ingress, DNS, routes, and VNets without raw REST calls.

@@ -42,11 +42,11 @@ describe("TunnelClient wrapper", () => {
     await expect(provider.revoke()).resolves.toBeUndefined()
   })
 
-  it("public constructor creates without throwing", async () => {
+  it("public constructor accepts an API token without exposing Effect", async () => {
     // Just verify construction works — the runtime isn't used until a method is called
     const client = new TunnelClient({
       accountId: "test-account",
-      authProvider: new EffectAuthProvider(makeApiTokenAuth("test-token")),
+      apiToken: "test-token",
     })
 
     expect(client.tunnels).toBeDefined()
@@ -379,15 +379,29 @@ describe("index.ts re-exports", () => {
   it("exports TunnelClient and expose from index", async () => {
     expect(idx.TunnelClient).toBeDefined()
     expect(typeof idx.expose).toBe("function")
+    expect("EffectAuthProvider" in idx).toBe(false)
+    expect("makeApiTokenAuth" in idx).toBe(false)
     expect(typeof idx.parseConfig).toBe("function")
     expect(typeof idx.parseConfigFromYaml).toBe("function")
     expect(typeof idx.parseConfigFromFile).toBe("function")
   })
 
+  it("config helpers return plain values from the default package", async () => {
+    const config = idx.parseConfigFromYaml(`
+ingress:
+  - hostname: app.example.com
+    service: http://localhost:3000
+  - service: http_status:404
+`)
+
+    expect(Array.isArray(config.ingress)).toBe(true)
+    expect("pipe" in config).toBe(false)
+  })
+
   it("TunnelClient from index works the same as from wrapper", async () => {
     const client = new idx.TunnelClient({
       accountId: "test",
-      authProvider: new idx.EffectAuthProvider(idx.makeApiTokenAuth("test-token")),
+      apiToken: "test-token",
     })
     expect(client.tunnels).toBeDefined()
     expect(client.ingress).toBeDefined()
