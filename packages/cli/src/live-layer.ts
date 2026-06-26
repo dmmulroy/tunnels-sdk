@@ -47,12 +47,15 @@ const mapSdkError = (e: unknown): CliError => {
       case "TunnelAuthError":
         return CliError.AuthError({ message: err.message ?? "Authentication failed" })
       case "TunnelNotFoundError":
-        return CliError.UserError({ message: `Tunnel not found: ${err.tunnelRef}` })
+        return CliError.UserError({
+          message: `no tunnel found for "${err.tunnelRef}"\nhelp: run tunnels list and use one of the returned names or IDs`,
+        })
       case "TunnelApiError": {
         const errors = err.errors ?? []
-        const msg = errors.length > 0
+        const details = errors.length > 0
           ? errors.map((e) => e.message).join("; ")
           : `API error (status ${err.status})`
+        const msg = `${details}\nhelp: retry with --verbose, or check Cloudflare API status and token permissions`
         return CliError.NetworkError({ message: msg, cause: e })
       }
       case "TunnelProcessError":
@@ -62,7 +65,9 @@ const mapSdkError = (e: unknown): CliError => {
       case "TunnelSdkError":
         return CliError.UserError({ message: err.message ?? "SDK error" })
       case "ConfigValidationError":
-        return CliError.UserError({ message: err.message ?? "Config validation error" })
+        return CliError.UserError({
+          message: err.message ?? "config validation failed\nhelp: fix the reported field and run config validate again",
+        })
     }
   }
   return CliError.NetworkError({ message: String(e), cause: e })
@@ -500,15 +505,22 @@ export const LiveLayer = (config: CloudflareApiConfig, auth: CloudflareAuthServi
 
 const authRequired = CliError.AuthError({
   message:
-    "Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN environment variables. " +
-    "Run `tunnels auth login` to configure.",
+    "missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN\n" +
+    "help: export both variables before running authenticated tunnel commands",
 })
 
 const authFail: Effect.Effect<never, CliError> = Effect.fail(authRequired)
 
 const UnauthenticatedLayer = Layer.mergeAll(
   Layer.succeed(QuickTunnelService, {
-    expose: () => authFail as any,
+    expose: (port: number) =>
+      catchSdkErrors(
+        sdkExpose(port).pipe(
+          Effect.scoped,
+          Effect.provide(CloudflaredBinary.layer),
+          Effect.map((result) => ({ url: result.url })),
+        ),
+      ),
   }),
   Layer.succeed(TunnelApiService, {
     create: () => authFail as any,

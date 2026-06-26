@@ -45,8 +45,15 @@ interface CfApiResponse<T> {
 // ---------------------------------------------------------------------------
 
 const toSdkError = (status: number, errors: Array<{ code: number; message: string }>) => {
-  if (status === 401 || status === 403) {
-    return new TunnelAuthError({})
+  if (status === 401) {
+    return new TunnelAuthError({
+      message: "Cloudflare rejected the API token.\nhelp: set CLOUDFLARE_API_TOKEN to a valid, non-expired token.",
+    })
+  }
+  if (status === 403) {
+    return new TunnelAuthError({
+      message: "Cloudflare API token is not authorized for this request.\nhelp: add the required Account and Zone permissions for tunnels, DNS, or routes.",
+    })
   }
   return new TunnelApiError({ status, errors })
 }
@@ -56,7 +63,7 @@ const authToTunnelAuthError = (error: unknown) =>
     message:
       error && typeof error === "object" && "message" in error
         ? String(error.message)
-        : "Authentication failed. Check your API token and account ID.",
+        : "Cloudflare authentication failed.\nhelp: check CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and token permissions.",
   })
 
 const recoverError = (error: any): Effect.Effect<never, TunnelApiError | TunnelAuthError> => {

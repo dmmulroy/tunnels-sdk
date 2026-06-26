@@ -37,7 +37,7 @@ export class CloudflaredBinary extends ServiceMap.Service<
         try: () => import("../../bin/cloudflared.js"),
         catch: (cause) =>
           new BinaryInstallError({
-            message: "Failed to load cloudflared binary module",
+            message: "failed to load the cloudflared binary module\nhelp: reinstall the tunnels package and try again",
             cause,
           }),
       })
@@ -48,7 +48,7 @@ export class CloudflaredBinary extends ServiceMap.Service<
             try: () => resolver.isInstalled(),
             catch: (cause) =>
               new BinaryInstallError({
-                message: "Failed to check binary status",
+                message: "failed to check cloudflared binary status\nhelp: remove the cached binary and retry installation",
                 cause,
               }),
           })
@@ -57,7 +57,7 @@ export class CloudflaredBinary extends ServiceMap.Service<
               try: () => resolver.install(),
               catch: (cause) =>
                 new BinaryInstallError({
-                  message: "Failed to install cloudflared",
+                  message: "failed to install cloudflared\nhelp: allow downloads from github.com/cloudflare/cloudflared or install cloudflared manually",
                   cause,
                 }),
             })
@@ -73,7 +73,7 @@ export class CloudflaredBinary extends ServiceMap.Service<
           try: () => resolver.install(),
           catch: (cause) =>
             new BinaryInstallError({
-              message: "Install failed",
+              message: "cloudflared install failed\nhelp: allow downloads from github.com/cloudflare/cloudflared and retry",
               cause,
             }),
         })
@@ -84,7 +84,10 @@ export class CloudflaredBinary extends ServiceMap.Service<
           return yield* Effect.tryPromise({
             try: () => resolver.isInstalled(),
             catch: (cause) =>
-              new BinaryInstallError({ message: "Failed to check", cause }),
+              new BinaryInstallError({
+                message: "failed to check cloudflared binary status\nhelp: remove the cached binary and retry installation",
+                cause,
+              }),
           }).pipe(Effect.catch(() => Effect.succeed(false)))
         },
       )

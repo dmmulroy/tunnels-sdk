@@ -37,6 +37,7 @@ const testOps = Layer.succeed(
   TunnelOperations,
   TunnelOperations.of({
     create: () => Effect.succeed(fakeTunnel),
+    for: () => Effect.succeed(fakeTunnel),
     list: () => Effect.succeed([fakeTunnel]),
     listAll: () => Stream.fromArray([fakeTunnel]),
     get: () => Effect.succeed(fakeTunnel),

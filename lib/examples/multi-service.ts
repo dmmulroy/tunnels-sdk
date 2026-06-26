@@ -1,8 +1,8 @@
 import { TunnelClient } from "tunnels"
 
 const client = new TunnelClient({
-  accountId: process.env.CF_ACCOUNT_ID!,
-  apiToken: process.env.CF_API_TOKEN!,
+  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+  apiToken: process.env.CLOUDFLARE_API_TOKEN!,
 })
 
 // Create with multiple services
@@ -22,7 +22,7 @@ const tunnel = await client.tunnels.create("platform", {
 await client.ingress.add(tunnel.id, {
   hostname: "admin.example.com",
   service: "http://localhost:9090",
-} as any)
+})
 await client.dns.ensure(tunnel.id, "admin.example.com")
 
 // List all ingress rules

@@ -63,7 +63,8 @@ describe("IngressManager (Effect)", () => {
           service: "http://localhost:9999",
         }))
         .pipe(Effect.catchTag("TunnelSdkError", (e) => Effect.succeed(e.message)))
-      assert.isTrue(typeof msg === "string" && msg.includes("Duplicate hostname"))
+      assert.isTrue(typeof msg === "string" && msg.includes("duplicate ingress hostname"))
+      assert.isTrue(typeof msg === "string" && msg.includes("help:"))
     }).pipe(
       Effect.provide(testLayer({
         get: () => Effect.succeed(cfConfig([
@@ -99,7 +100,8 @@ describe("IngressManager (Effect)", () => {
       const msg = yield* mgr
         .remove("tunnel-1", "nonexistent.example.com")
         .pipe(Effect.catchTag("TunnelSdkError", (e) => Effect.succeed(e.message)))
-      assert.isTrue(typeof msg === "string" && msg.includes("No ingress rule found"))
+      assert.isTrue(typeof msg === "string" && msg.includes("no ingress rule found"))
+      assert.isTrue(typeof msg === "string" && msg.includes("help:"))
     }).pipe(
       Effect.provide(testLayer({
         get: () => Effect.succeed(cfConfig([

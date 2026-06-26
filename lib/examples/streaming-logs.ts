@@ -4,17 +4,17 @@
  * The TunnelProcessService provides a RunningTunnel with event and log streams.
  * This example shows how to consume them with Effect Streams.
  */
-import { Effect, Stream, Redacted } from "effect"
+import { Effect, Stream } from "effect"
 import {
   TunnelOperations,
   TunnelProcessService,
   LiveLayer,
   CloudflareApiConfig,
+  makeApiTokenAuth,
 } from "tunnels/effect"
 
 const config = new CloudflareApiConfig({
-  accountId: process.env.CF_ACCOUNT_ID!,
-  apiToken: Redacted.make(process.env.CF_API_TOKEN!),
+  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
 })
 
 const program = Effect.gen(function* () {
@@ -53,7 +53,7 @@ const program = Effect.gen(function* () {
   yield* Effect.log(`Tunnel exited with code ${code}`)
 }).pipe(
   Effect.scoped,
-  Effect.provide(LiveLayer(config)),
+  Effect.provide(LiveLayer(config, makeApiTokenAuth(process.env.CLOUDFLARE_API_TOKEN!))),
 )
 
 Effect.runPromise(program).catch(console.error)

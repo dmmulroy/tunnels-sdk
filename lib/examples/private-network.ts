@@ -1,8 +1,8 @@
 import { TunnelClient } from "tunnels"
 
 const client = new TunnelClient({
-  accountId: process.env.CF_ACCOUNT_ID!,
-  apiToken: process.env.CF_API_TOKEN!,
+  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+  apiToken: process.env.CLOUDFLARE_API_TOKEN!,
 })
 
 // Create virtual networks for environment isolation
