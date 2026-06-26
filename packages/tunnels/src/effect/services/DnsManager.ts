@@ -95,7 +95,7 @@ export class DnsManager extends ServiceMap.Service<
           }
         }
         return yield* new TunnelSdkError({
-          message: `Could not find Cloudflare zone for hostname: "${hostname}"`,
+          message: `could not find a Cloudflare zone for "${hostname}"\nhelp: add the parent domain to this account, or use a hostname under an existing zone`,
         });
       });
 
@@ -124,7 +124,7 @@ export class DnsManager extends ServiceMap.Service<
           if (existing.type === "CNAME" && existing.content === target) return;
           if (!options?.overwrite) {
             return yield* new TunnelSdkError({
-              message: `DNS record "${hostname}" already exists and does not point to this tunnel. Pass dns: { overwrite: true } to replace it.`,
+              message: `DNS record "${hostname}" already exists and does not point to this tunnel\nhelp: pass dns: { overwrite: true } to replace it`,
             });
           }
           yield* api.put(

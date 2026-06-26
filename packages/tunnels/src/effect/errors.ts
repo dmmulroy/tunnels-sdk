@@ -29,7 +29,9 @@ export class TunnelAuthError extends Schema.TaggedErrorClass<TunnelAuthError>()(
   {
     message: Schema.String.pipe(
       Schema.withConstructorDefault(() =>
-        Option.some("Authentication failed. Check your API token and account ID.")
+        Option.some(
+          "Cloudflare authentication failed.\nhelp: check CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and token permissions.",
+        )
       )
     ),
   }

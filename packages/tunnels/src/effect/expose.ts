@@ -47,7 +47,7 @@ export const expose = (
         resume(
           Effect.fail(
             new TunnelProcessError({
-              message: "Tunnel closed before URL was received",
+              message: "quick tunnel exited before Cloudflare returned a URL\nhelp: check network access to Cloudflare and try again",
             }),
           ),
         )

@@ -59,7 +59,7 @@ describe("Effect errors", () => {
       const error = new TunnelAuthError({})
       assert.strictEqual(
         error.message,
-        "Authentication failed. Check your API token and account ID."
+        "Cloudflare authentication failed.\nhelp: check CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and token permissions."
       )
     })
 

@@ -121,18 +121,27 @@ const effectAuthFromProvider = (authProvider: CloudflareAuthProvider): Cloudflar
     getAccessToken: (options) =>
       Effect.tryPromise({
         try: () => authProvider.getAccessToken(options),
-        catch: (cause) => new AuthError({ message: "Auth provider failed to get an access token.", cause }),
+        catch: (cause) => new AuthError({
+          message: "auth provider failed to get an access token\nhelp: verify the provider returns a valid Cloudflare API token",
+          cause,
+        }),
       }),
     refresh: () =>
       Effect.tryPromise({
         try: async () => new EffectAuthTokenSet(await authProvider.refresh()),
-        catch: (cause) => new AuthError({ message: "Auth provider failed to refresh.", cause }),
+        catch: (cause) => new AuthError({
+          message: "auth provider failed to refresh credentials\nhelp: refresh the token or use makeApiTokenAuth() for static API tokens",
+          cause,
+        }),
       }),
     revoke: () =>
       authProvider.revoke
         ? Effect.tryPromise({
             try: () => authProvider.revoke!(),
-            catch: (cause) => new AuthError({ message: "Auth provider failed to revoke.", cause }),
+            catch: (cause) => new AuthError({
+              message: "auth provider failed to revoke credentials\nhelp: check the provider revoke() implementation",
+              cause,
+            }),
           })
         : Effect.void,
   });

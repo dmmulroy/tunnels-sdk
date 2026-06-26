@@ -99,7 +99,7 @@ export class IngressManager extends ServiceMap.Service<
 
         if (rule.hostname && mutable.some((existing) => existing.hostname === rule.hostname)) {
           return yield* new TunnelSdkError({
-            message: `Duplicate hostname: "${rule.hostname}" already exists in ingress rules`,
+            message: `duplicate ingress hostname "${rule.hostname}"\nhelp: remove the existing rule or choose a different hostname`,
           })
         }
 
@@ -124,7 +124,7 @@ export class IngressManager extends ServiceMap.Service<
 
         if (filtered.length === current.length) {
           return yield* new TunnelSdkError({
-            message: `No ingress rule found with hostname: "${hostname}"`,
+            message: `no ingress rule found for "${hostname}"\nhelp: run ingress.list() and remove one of the returned hostnames`,
           })
         }
 

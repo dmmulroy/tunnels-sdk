@@ -66,7 +66,8 @@ describe("VNetManager (Effect)", () => {
       const msg = yield* mgr.del("nonexistent").pipe(
         Effect.catchTag("TunnelSdkError", (e) => Effect.succeed(e.message)),
       )
-      assert.isTrue(typeof msg === "string" && msg.includes("Virtual network not found"))
+      assert.isTrue(typeof msg === "string" && msg.includes("virtual network"))
+      assert.isTrue(typeof msg === "string" && msg.includes("help:"))
     }).pipe(
       Effect.provide(testLayer({ get: () => Effect.succeed([]) })),
     ),

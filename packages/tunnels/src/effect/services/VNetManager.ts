@@ -77,7 +77,7 @@ export class VNetManager extends ServiceMap.Service<
         const match = vnets.find((v) => v.name === name)
         if (!match) {
           return yield* new TunnelSdkError({
-            message: `Virtual network not found: "${name}"`,
+            message: `virtual network "${name}" was not found\nhelp: run client.vnets.list() and delete one of the returned names`,
           })
         }
         yield* api.del(api.accountPath(`/teamnet/virtual_networks/${match.id}`))

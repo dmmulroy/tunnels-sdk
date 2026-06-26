@@ -54,7 +54,7 @@ export class RouteManager extends ServiceMap.Service<
         const match = vnets.find((v) => v.name === name)
         if (!match) {
           return yield* new TunnelSdkError({
-            message: `Virtual network not found: "${name}"`,
+            message: `virtual network "${name}" was not found\nhelp: create it first with client.vnets.create("${name}") or use an existing VNet`,
           })
         }
         return match.id
@@ -103,7 +103,7 @@ export class RouteManager extends ServiceMap.Service<
         const match = routes.find((r) => r.network === network)
         if (!match) {
           return yield* new TunnelSdkError({
-            message: `No route found for network: "${network}"`,
+            message: `no private route found for "${network}"\nhelp: run routes.list(tunnelId) and remove one of the returned networks`,
           })
         }
         yield* api.del(

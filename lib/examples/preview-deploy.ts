@@ -1,9 +1,11 @@
-import { TunnelClient } from "tunnels"
+import { EffectAuthProvider, TunnelClient, makeApiTokenAuth } from "tunnels"
 import { Octokit } from "@octokit/rest"
 
 const client = new TunnelClient({
-  accountId: process.env.CF_ACCOUNT_ID!,
-  apiToken: process.env.CF_API_TOKEN!,
+  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+  authProvider: new EffectAuthProvider(
+    makeApiTokenAuth(process.env.CLOUDFLARE_API_TOKEN!),
+  ),
 })
 
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN })

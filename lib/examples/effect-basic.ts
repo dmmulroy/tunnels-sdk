@@ -5,18 +5,18 @@
  * Effect services and the LiveLayer. No async/await wrapper needed —
  * everything is type-safe and composable.
  */
-import { Effect, Redacted, Stream } from "effect"
+import { Effect, Stream } from "effect"
 import {
   TunnelOperations,
   IngressManager,
   DnsManager,
   CloudflareApiConfig,
   LiveLayer,
+  makeApiTokenAuth,
 } from "tunnels/effect"
 
 const config = new CloudflareApiConfig({
-  accountId: process.env.CF_ACCOUNT_ID!,
-  apiToken: Redacted.make(process.env.CF_API_TOKEN!),
+  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
 })
 
 const program = Effect.gen(function* () {
@@ -59,7 +59,7 @@ const program = Effect.gen(function* () {
   yield* tunnels.del(tunnel.id, { force: true })
   yield* Effect.log("Tunnel deleted")
 }).pipe(
-  Effect.provide(LiveLayer(config)),
+  Effect.provide(LiveLayer(config, makeApiTokenAuth(process.env.CLOUDFLARE_API_TOKEN!))),
 )
 
 // Run the program

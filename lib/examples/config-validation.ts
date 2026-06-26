@@ -51,5 +51,5 @@ if (Exit.isSuccess(fileResult)) {
 // - Missing catch-all rule
 // - Duplicate hostnames
 // - Invalid originRequest keys (typos in connectTimeout, etc.)
-// - Invalid CIDR ranges in warp-routing
+// - Invalid CIDR ranges in routes
 // - Invalid service URLs
